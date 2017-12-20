@@ -3,6 +3,9 @@ import sys
 import os
 import math
 
+import pyglet
+from pyglet.gl import *
+
 from cocos.actions import *
 from cocos.director import director
 from cocos.layer import Layer, ColorLayer
@@ -10,13 +13,11 @@ from cocos.scene import Scene
 from cocos.sprite import Sprite
 from cocos.text import Label
 
-from primitives import Polygon
-
-import pyglet
-from pyglet.gl import *
+from primitives import Polygon, Circle
 
 
-from ConfigParser import SafeConfigParser
+
+from configparser import SafeConfigParser
 from argparse import ArgumentParser
 from PyDragonfly import Dragonfly_Module, CMessage, copy_to_msg, copy_from_msg, read_msg_data, MT_EXIT
 from dragonfly_utils import respond_to_ping
@@ -56,32 +57,38 @@ class Display(ColorLayer):
         self.mod.Subscribe(rc.MT_END_TASK_STATE)
         self.mod.Subscribe(rc.MT_PING)
         self.mod.Subscribe(rc.MT_RT_POSITION_FEEDBACK)
-        
+
 
         self.msg = CMessage()
-        
+
         self.timer_sec = 0
         self.timer_min = 0
-        
+
         self.transformationType = 0
-        
+
         dims = director.get_window_size()
         self.width = dims[0]
         self.height = dims[1]
         self.oldWidth = 1280
         self.oldHeight = 1024
-        
+
         self.blank_display = False
-        
-        self.position_bar = Polygon(v=[(20, 455), (20, 565), (1260, 565), (1260, 455)], color=(0.05, 0.05, 0.05, 1), stroke=0)
+
+        self.position_bar = Polygon(v=[(20, 455), (20, 565), (1260, 565), (1260, 455)],
+                                    color=(0.05, 0.05, 0.05, 1), stroke=0)
         self.resizePolygon(self.position_bar)
-        
-        self.tgt_window   = Polygon(v=[(0, 0), (0, 0), (0, 0), (0, 0)], color=(0, 0.6, 0.2, 1), stroke=0)
+
+        self.tgt_window   = Polygon(v=[(0, 0), (0, 0), (0, 0), (0, 0)],
+                                    color=(0, 0.6, 0.2, 1), stroke=0)
         self.resizePolygon(self.tgt_window)
+
+        self.pos_feedback = Circle( x=24, y=510, z=0, width=20, 
+                                    color=(0, 0.2, 1.0, 1), stroke=0)
         
-        self.pos_fdbk     = Polygon(v=[(20, 405), (20, 615), (28, 615), (28, 405)], color=(0, 0.2, 1.0, 1), stroke=0)
+        self.pos_fdbk     = Polygon(v=[(20, 405), (20, 615), (28, 615), (28, 405)],
+                                    color=(0, 0.2, 1.0, 1), stroke=0)
         self.resizePolygon(self.pos_fdbk)
-        
+
         self.pos_fdbk_txt = pyglet.text.Label('',
                                       font_name='times new roman',
                                       font_size=32,
@@ -179,32 +186,9 @@ class Display(ColorLayer):
                 if msg_type == rc.MT_PING:
                     self.reset_score()
 
-                elif msg_type == rc.MT_INPUT_DOF_DATA:
-                    mdf = rc.MDF_INPUT_DOF_DATA()
-                    copy_from_msg(mdf, self.msg)
-
-                    if mdf.tag == 'carduinoIO':
-                        fdbk = 5 - mdf.dof_vals[7]  # invert to match phyiscal setup
-                        x_pos = int((fdbk * (MAX_WIDTH - 2*OFFSET))/5.0)
-                        
-                        x_pos += 20
-                        
-                        self.pos_fdbk_txt.text = "%.2f V" % fdbk
-                        
-                        self.pos_fdbk.v[0] = (x_pos, 405)
-                        self.pos_fdbk.v[1] = (x_pos, 615)
-                        self.pos_fdbk.v[2] = (x_pos+8, 615)
-                        self.pos_fdbk.v[3] = (x_pos+8, 405)
-                        
-
-    #                if msg_type == rc.MT_FORCE_SENSOR_DATA:
-    #                    mdf = rc.MDF_FORCE_SENSOR_DATA()
-    #                    copy_from_msg(mdf, self.msg)
-    #
-    #                    x_fdbk = mdf.data[0]
-    #                    x_fdbk_width = int((x_fdbk / MAX_FDBK) * MAX_WIDTH)
-    
-                elif msg_type == rc.MT_RT_POSITION_FEEDBACK: # updates real time position of handle on screen receives messages from cube_sphere while loop
+                # updates real time position of handle on screen receives messages 
+                # from cube_sphere while loop
+                elif msg_type == rc.MT_RT_POSITION_FEEDBACK: 
                     mdf = rc.MDF_RT_POSITION_FEEDBACK()
                     copy_from_msg(mdf, self.msg)
 
@@ -219,18 +203,18 @@ class Display(ColorLayer):
                     self.resizePolygon(self.pos_fdbk)
                     self.transformPolygon(self.pos_fdbk, self.transformationType)
                     
-                elif msg_type == rc.MT_COMBO_WAIT:
-                    mdf = rc.MDF_COMBO_WAIT()
-                    copy_from_msg(mdf, self.msg)
-                
-                    print mdf.duration
-                
-                    duration = mdf.duration / 1000      # convert to seconds
-                    self.timer_sec = duration % 60
-                    self.timer_min = duration / 60
+              #  elif msg_type == rc.MT_COMBO_WAIT:
+              #      mdf = rc.MDF_COMBO_WAIT()
+              #      copy_from_msg(mdf, self.msg)
+              #  
+              #      print mdf.duration
 
-                    self.screen_off()
-                    self.schedule_interval(self.timer_count_down, 1)
+              #      duration = mdf.duration / 1000      # convert to seconds
+              #      self.timer_sec = duration % 60
+              #      self.timer_min = duration / 60
+
+              #      self.screen_off()
+              #      self.schedule_interval(self.timer_count_down, 1)
                 
                 elif msg_type == rc.MT_TRIAL_CONFIG:
                     self.unschedule(self.timer_count_down)
@@ -242,13 +226,14 @@ class Display(ColorLayer):
                     #copy_from_msg(mdf, self.msg)
                     read_msg_data(mdf, self.msg)
         
-                    print mdf.id, mdf.outcome
+                    #print mdf.id
+                    #print mdf.outcome
         
                     if (mdf.id == REWARD_TS) and (mdf.outcome == 1):
                         self.increment_score()
 
                     if (mdf.id in [2, 3, 4]) and (mdf.outcome == 0):
-                        print "screen off"
+                        print("screen off")
                         self.screen_off()
 
                 elif msg_type == rc.MT_TASK_STATE_CONFIG:
@@ -307,7 +292,7 @@ class Display(ColorLayer):
         elif transformationType == 1: # forwards XorYorZ=0 UpOrDown=1
             return (input_point[1], input_point[0])
         else:
-            print "unknown transform type"
+            print( "unknown transform type")
 
     #def on_key_release( self, keys, mod ):
 
@@ -319,6 +304,7 @@ class Display(ColorLayer):
             self.position_bar.render()
             self.tgt_window.render()
             self.pos_fdbk.render()
+            self.pos_feedback.render()
             #self.pos_fdbk_txt.draw()
             self.score_txt.draw()
             self.reward_txt.draw()
