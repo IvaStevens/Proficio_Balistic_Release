@@ -368,6 +368,18 @@ typedef struct {
 } MDF_TASK_STATE_CONFIG;
 
 typedef struct {
+  bool    error;
+  char    error_msg[64];
+  bool    task_complete;
+  bool    task_success;
+  double  timestamp;
+  double  user_force;
+  double  pos_x;
+  double  pos_y;
+  double  pos_z;
+} MDF_BURT_STATUS;
+
+typedef struct {
 	int  id;
 	int  reserved;
 	char reason[TAG_LENGTH];
