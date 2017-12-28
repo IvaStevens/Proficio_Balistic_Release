@@ -672,6 +672,8 @@ MDF_TRIAL_INPUT._fields_ = [
     ('forceThreshold', c_double),
     ('targetDistance', c_double),
     ('targetError', c_double),
+    ('direction', c_double),
+    ('width', c_double),
 ]
 class MDF_RT_POSITION_FEEDBACK(Structure):
     pass

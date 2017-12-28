@@ -3,13 +3,14 @@
 #include "Dragonfly_config.h"
 #include "params.h"
 #include <vector>
+#include <math.h>
 using namespace std;
 
 class TargetNode
 {
 
   public:
-    int  distance; //preferred is probably public getters and setters...
+    double  distance; //preferred is probably public getters and setters...
     int direction;
     int     width;
     double  force;
@@ -21,6 +22,15 @@ class TargetNode
       width = wid;
       force = frc;
     };
+  
+    bool operator==(const TargetNode& other) const
+    {
+      return
+        distance == other.distance &&
+        direction == other.direction &&
+        width == other.width &&
+        force == other.force;
+    }
 };
 
 vector<TargetNode> initTargetList( 
@@ -36,11 +46,11 @@ vector<TargetNode> initTargetList(
   }
   vector<TargetNode> targetList;
 
-  for (int k = 0; k < forces.size(); k++)
+  for (uint k = 0; k < forces.size(); k++)
   {
-    for (int j = 0; j < dirs.size(); j++)
+    for (uint j = 0; j < dirs.size(); j++)
     {
-      for (int i = 0; i < distances.size(); i++)
+      for (uint i = 0; i < distances.size(); i++)
       {
         double newDist = distances.at(i);
         int newDir = dirs.at(j);
@@ -87,8 +97,8 @@ int main( int argc, char *argv[])
     // Initialize targetList
     vector<TargetNode> targetList = initTargetList(directions, forces, widths, distances);
     vector<TargetNode>::iterator targetIter = targetList.begin();
-    TargetNode currentTarget = targetIter;
-    TargetNode nextTarget = targetIter;
+    TargetNode currentTarget = *targetIter;
+    TargetNode nextTarget = *targetIter;
 
     // Run the experiment
     while(1)
@@ -129,9 +139,9 @@ int main( int argc, char *argv[])
               break;
             }
             // pull up next TARGET parameters
-            if ( *nextTarget == *currentTarget)
+            if ( nextTarget == currentTarget)
             {
-              currentTarget = currentTarget.;
+              currentTarget = *(++targetIter);
             } else {
               currentTarget = nextTarget;
             }
@@ -141,10 +151,12 @@ int main( int argc, char *argv[])
             { // Determine next target (send out with state)
 
               // Send out RESET messages and next target parameters
+              MDF_TRIAL_INPUT trial_input_data;
               CMessage trial_input_M( MT_TRIAL_INPUT);
               trial_input_M.SetData( &trial_input_data, sizeof(trial_input_data));
               mod.SendMessageDF( &trial_input_M);
 
+              MDF_TASK_STATE_CONFIG task_state_data;
               CMessage task_state_config_M( MT_TASK_STATE_CONFIG);
               task_state_config_M.SetData( &task_state_data, sizeof(task_state_data));
               mod.SendMessageDF( &task_state_config_M);      
@@ -165,14 +177,14 @@ int main( int argc, char *argv[])
 
               // If this is a rewardable transition, do so.
               if (!shouldReset) {
-                cout << "REWARD!!!" << endl
+                cout << "REWARD!!!" << endl;
               }
 
               // Reset variables
               shouldReset = false;
               userDefState = false;
               userDefTarget = false;
-              nextTarget = NULL;
+              nextTarget = currentTarget;
             }            
           }
       }

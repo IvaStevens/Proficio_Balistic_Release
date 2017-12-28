@@ -590,6 +590,8 @@ typedef struct
 	double forceThreshold;
 	double targetDistance;
 	double targetError;
+  double direction;
+  double width;
 } MDF_TRIAL_INPUT;
 
 typedef struct
