@@ -18,7 +18,7 @@ from pyglet.gl import *
 
 from ConfigParser import SafeConfigParser
 from argparse import ArgumentParser
-from PyDragonfly import Dragonfly_Module, CMessage, copy_to_msg, copy_from_msg, read_msg_data, MT_EXIT
+from PyDragonfly import Dragonfly_Module, CMessage, copy_to_msg, copy_from_msg, MT_EXIT
 from dragonfly_utils import respond_to_ping
 import Dragonfly_config as rc
 
