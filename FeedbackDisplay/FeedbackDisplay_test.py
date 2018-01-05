@@ -2,6 +2,7 @@
 import sys
 import os
 import math
+import time
 
 from cocos.actions import *
 from cocos.director import director
@@ -40,6 +41,13 @@ BEGINTRIAL_TS = 1
 FORCERAMP_TS = 2
 REWARD_TS = 5
 
+#POSITION_ORIGIN = [(20.0, 455.0), (20.0, 565.0), (1260.0, 565.0), (1260.0, 455.0)]
+#POSITION_ORIGIN = [(174, 739), (82, 647), (752, 1317), (844, 1409)]
+POSITION_ORIGIN = [(174, 739), (82, 647), (752, 317), (844, 409)]
+#POSITION_ORIGIN = [(174, 109), (82, 17), (752, 687), (844, 779)]
+
+currentAngle = 0
+
 
 class Display(ColorLayer):
     is_event_handler = True
@@ -57,7 +65,6 @@ class Display(ColorLayer):
         self.mod.Subscribe(rc.MT_PING)
         self.mod.Subscribe(rc.MT_RT_POSITION_FEEDBACK)
         
-
         self.msg = CMessage()
         
         self.timer_sec = 0
@@ -73,8 +80,10 @@ class Display(ColorLayer):
         
         self.blank_display = False
         
-        self.position_bar = Polygon(v=[(20, 455), (20, 565), (1260, 565), (1260, 455)], color=(0.05, 0.05, 0.05, 1), stroke=0)
-        self.resizePolygon(self.position_bar)
+        self.position_bar = Polygon(v=POSITION_ORIGIN, color=(0.05, 0.05, 0.05, 1), stroke=0)
+        #self.rotatePositionBar(currentAngle)
+        #self.resizePolygon(self.position_bar)
+        
         
         self.tgt_window   = Polygon(v=[(0, 0), (0, 0), (0, 0), (0, 0)], color=(0, 0.6, 0.2, 1), stroke=0)
         self.resizePolygon(self.tgt_window)
@@ -119,28 +128,64 @@ class Display(ColorLayer):
 
         self.schedule_interval(self.update, 0.01)
 
-#     def timer_count_down(self, dt):
-#         self.timer_sec -= 1
-#         
-#         if self.timer_sec < 0:
-#             if self.timer_min > 0:
-#                 self.timer_min -= 1
-#                 self.timer_sec = 59
-#             else:
-#                 self.unschedule(self.timer_count_down)
-#                 self.combo_wait_txt.text = ''
-#                 self.screen_on()
-#                 return
-#         
-#         self.combo_wait_txt.text = 'Relax Time   %d:%02d' % (self.timer_min, self.timer_sec)
-# 
-#         if self.timer_min == 0 and self.timer_sec <= 5 and self.timer_sec > 0:
-#             winsound.PlaySound(os.path.join(os.environ.get('ROBOT_CONFIG'), 'default', 'gocue.wav'), winsound.SND_FILENAME | winsound.SND_ASYNC)
+        #     def timer_count_down(self, dt):
+        #         self.timer_sec -= 1
+        #         
+        #         if self.timer_sec < 0:
+        #             if self.timer_min > 0:
+        #                 self.timer_min -= 1
+        #                 self.timer_sec = 59
+        #             else:
+        #                 self.unschedule(self.timer_count_down)
+        #                 self.combo_wait_txt.text = ''
+        #                 self.screen_on()
+        #                 return
+        #         
+        #         self.combo_wait_txt.text = 'Relax Time   %d:%02d' % (self.timer_min, self.timer_sec)
+        # 
+        #         if self.timer_min == 0 and self.timer_sec <= 5 and self.timer_sec > 0:
+        #             winsound.PlaySound(os.path.join(os.environ.get('ROBOT_CONFIG'), 'default', 'gocue.wav'), winsound.SND_FILENAME | winsound.SND_ASYNC)
     
     def resizePolygon(self, polygon):
         for i in xrange(4):
             polygon.v[i] = (polygon.v[i][0] * self.width / self.oldWidth, polygon.v[i][1] * self.height / self.oldHeight)
-
+    
+    
+    def rotatePoint(self, oldPoint, angle, origin):
+        ox, oy = origin
+        print("origin: ", origin)
+        px, py = oldPoint
+        print "old point: ", oldPoint
+        print "angle", angle
+        
+        qx = ox + (math.cos(angle) * (px - ox)) - (math.sin(angle) * (py - oy))
+        qy = oy + (math.sin(angle) * (px - ox)) + (math.cos(angle) * (py - oy))
+        print "new point: ", qx, qy
+        return qx, qy
+    
+    
+    def rotatePositionBar(self, angle):
+        top, left = POSITION_ORIGIN[0]
+        bot, right = POSITION_ORIGIN[2]
+        
+        cx = (left + right) * 0.5
+        cy = (top + bot) * 0.5
+        center = (cx, cy)
+        
+        topL = self.rotatePoint(POSITION_ORIGIN[0], angle, center)
+        botL = self.rotatePoint(POSITION_ORIGIN[1], angle, center)
+        botR = self.rotatePoint(POSITION_ORIGIN[2], angle, center)
+        topR = self.rotatePoint(POSITION_ORIGIN[3], angle, center)
+        
+        rotated = [topL, botL, botR, topR]
+        # print "rotating"
+        self.position_bar.v = rotated
+        # self.resizePolygon(self.position_bar)
+        if topL[0] > 0:
+          print rotated
+        return rotated
+        
+        
     def reset_score(self):
         self.score = 0
         self.score_force_level = 0
@@ -170,8 +215,11 @@ class Display(ColorLayer):
         self.color = (180, 180, 180)
         
     def update(self, dt):
+        global currentAngle
         while True:
             rcv = self.mod.ReadMessage(self.msg, 0)
+            currentAngle = (currentAngle + 45) % 360
+            #self.rotatePositionBar(currentAngle)
             if rcv == 1:
                 hdr = self.msg.GetHeader()
                 msg_type = hdr.msg_type
@@ -197,14 +245,15 @@ class Display(ColorLayer):
                         self.pos_fdbk.v[3] = (x_pos+8, 405)
                         
 
-    #                if msg_type == rc.MT_FORCE_SENSOR_DATA:
-    #                    mdf = rc.MDF_FORCE_SENSOR_DATA()
-    #                    copy_from_msg(mdf, self.msg)
-    #
-    #                    x_fdbk = mdf.data[0]
-    #                    x_fdbk_width = int((x_fdbk / MAX_FDBK) * MAX_WIDTH)
+                 # if msg_type == rc.MT_FORCE_SENSOR_DATA:
+                 #     mdf = rc.MDF_FORCE_SENSOR_DATA()
+                 #     copy_from_msg(mdf, self.msg)
+                 #     x_fdbk = mdf.data[0]
+                 #     x_fdbk_width = int((x_fdbk / MAX_FDBK) * MAX_WIDTH)
     
-                elif msg_type == rc.MT_RT_POSITION_FEEDBACK: # updates real time position of handle on screen receives messages from cube_sphere while loop
+                # updates real time position of handle on screen 
+                # receives messages from cube_sphere while loop
+                elif msg_type == rc.MT_RT_POSITION_FEEDBACK: 
                     mdf = rc.MDF_RT_POSITION_FEEDBACK()
                     copy_from_msg(mdf, self.msg)
 
@@ -290,12 +339,15 @@ class Display(ColorLayer):
                         self.resizePolygon(self.tgt_window)
                         self.transformPolygon(self.tgt_window, self.transformationType)
             else:
-                break
+                self.rotatePositionBar(math.radians(currentAngle))
+                time.sleep(1)
+                #break
     
     def transformPolygon(self, polygon, transformationType):
         for i in xrange(4):
             polygon.v[i] = self.transformPoint(polygon.v[i], transformationType)
 
+            
     def transformPoint(self, input_point, transformationType):
         # tt values are determined by adding XorYorZ and UpOrDown
         if transformationType == 0: # goes from left to right XorYorZ=1 UpOrDown=-1 
