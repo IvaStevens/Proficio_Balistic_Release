@@ -9,15 +9,10 @@
 from pyparsing import *
 
 # Pull in enum containing string
-enumFile = ""
-with open('data.txt', 'r') as myfile:
-    enumStr = enumfile.read().replace('\n', '')
+with open('params.h', 'r') as enumFile:
+    enumStr = enumFile.read().replace('\n', '')
 
 class Map(dict):
-    """
-    Example:
-    m = Map({'first_name': 'Eduardo'}, last_name='Pool', age=24, sports=['Soccer'])
-    """
     def __init__(self, *args, **kwargs):
         super(Map, self).__init__(*args, **kwargs)
         for arg in args:
@@ -50,7 +45,7 @@ class Map(dict):
 # Syntax we don't want to see in the final parse tree
 LBRACE,RBRACE,EQ,COMMA = map(Suppress,"{}=,")
 _enum = Suppress('enum')
-identifier = Word(alphas,alphanums+'.')
+identifier = Word(alphas,alphanums+'_')
 integer = Word(nums)
 enumValue = Group(identifier('name') + Optional(EQ + integer('value')))
 enumList = Group(enumValue + ZeroOrMore(COMMA + enumValue))
@@ -61,13 +56,13 @@ EnumMap = {}
 
 # Find instances of enums ignoring other syntax
 for item,start,stop in enum.scanString(enumStr):
-    id = 0
+    id = 1
     temp = {}
     for entry in item.names:
         if entry.value != '':
             id = int(entry.value)
         temp[entry.name] = id
-        print('%s.%s = %d' % (item.enum,entry.name,id))
+        # print('%s.%s = %d' % (item.enum,entry.name,id))
         id += 1
     m = Map(temp)
     EnumMap[item.enum] = m
