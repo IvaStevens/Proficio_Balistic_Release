@@ -42,7 +42,6 @@ else:
 MAX_WIDTH = 1280
 OFFSET=20
 
-
 BEGINTRIAL_TS = 1
 FORCERAMP_TS = 2
 REWARD_TS = 5
@@ -82,7 +81,6 @@ class Display(ColorLayer):
         self.mod.Subscribe(rc.MT_END_TASK_STATE)
         self.mod.Subscribe(rc.MT_PING)
         self.mod.Subscribe(rc.MT_RT_POSITION_FEEDBACK)
-        bp()
         self.mod.Subscribe(rc.MT_BURT_STATUS)
         
         self.msg = CMessage()
@@ -100,6 +98,8 @@ class Display(ColorLayer):
         
         self.blank_display = False
         self.background = ColorLayer(*GRY_L)
+        
+        self.currentState = enums.STATE.RESET
         
         #positionOrigin = self.getPositionBarOrigin(self.width, self.height)
         self.position_bar = Polygon(v=POSITION_ORIGIN, color=(0.05, 0.05, 0.05, 1), stroke=0)
@@ -218,34 +218,45 @@ class Display(ColorLayer):
 
     # Set the task state
     def setState(self, msg, state = 1):
-      # States: start, forceRamp, forceHold, targetMove, targetHold, rest, reset, success, error
-        
-        # Default state:
-        
-        # Cursor either 80 or 50 pixles
-        self.cursor.width = 50
-        # Target either invisible (GREY), green, yellow, red
-        self.tgt_window.color = colorMod(MSTRD)
-        # Background either white or grey
-        self.background.color = colorMod(WHITE)
-        
-        # Move robot back to original position.
-        if state == enums.STATES.START:
+      # States: start, forceRamp, forceHold, targetMove, targetHold, 
+      #         rest, reset, success, error
+      # Default state: START
+
+      # Cursor either 80 or 50 pixles
+      self.cursor.width = 50
+      # Target either invisible (GREY), green, yellow, red
+      self.tgt_window.color = colorMod(MSTRD)
+      # Background either white or grey
+      self.background.color = colorMod(WHITE)
+
+      # Move robot back to original position.
+      if state == enums.STATES.START:
+        # If a trial is just beginning..
+        if state.currentState != start:
+          self.angle = msg.direction/8 * 360
+          self.targetWidth = msg.width
+          self.targetDistance = msg.distance
+          self.cursor.x = CURSOR_ORIGIN[0]
+          self.cursor.y = CURSOR_ORIGIN[1]
+        else:
           pass
-        # If success or failure, hide cursor until robot repositioned
-        elif state == enums.STATES.ERROR or state == enums.STATES.FAIL:
-          self.tgt_window.color = colorMod(BRGDY)
-          self.cursor.width = 0
-        elif state == enums.STATES.SUCCESS:
-          self.tgt_window.color = colorMod(GREEN) 
-          self.cursor.wdith = 0
-        elif state == enums.STATES.REST:
-          self.background.color = colorMod(GREY)
-          self.cursor.width = 80 # 50 if active
-          self.tgt_window.color = colorMod(GREY)
-        elif state == enums.STATES.RESET:
-          pass
-        
+      # If success or failure, hide cursor until robot repositioned
+      elif state == enums.STATES.ERROR or state == enums.STATES.FAIL:
+        self.tgt_window.color = colorMod(BRGDY)
+        self.cursor.width = 0
+      elif state == enums.STATES.SUCCESS:
+        self.tgt_window.color = colorMod(GREEN) 
+        self.cursor.wdith = 0
+      elif state == enums.STATES.REST:
+        self.background.color = colorMod(GREY)
+        self.cursor.width = 80 # 50 if active
+        self.tgt_window.color = colorMod(GREY)
+      elif state == enums.STATES.RESET:
+        pass
+
+      # Ensure the correct state
+      self.currentState = state
+
 
     # This function probably should never be used...
     def outsideOfBar(self):
@@ -346,9 +357,7 @@ class Display(ColorLayer):
                             pass
                         else:
                             #self.setState(mdf, state)
-                            pass
-                            
-                
+                            pass                
                 
                 # Get state information from Exec
                 elif msg_type == rc.MT_TASK_STATE_CONFIG:
