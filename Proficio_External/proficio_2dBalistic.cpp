@@ -5,7 +5,7 @@
  * 
  */
  
- #include "proficio_2dBalistic.h"  
+#include "proficio_2dBalistic.h"  
 #include "/home/robot/src/Proficio_Systems/magnitude.h"
 #include "/home/robot/src/Proficio_Systems/normalize.h"
 #include "/home/robot/src/Dragonfly_Message_defs/Dragonfly_config.h" 
@@ -80,7 +80,6 @@ bool validate_args(int argc, char** argv) {
 }
 
 namespace barrett {
-<<<<<<< HEAD
   namespace systems {
     v_type msg_tmp;
     barrett::systems::ExposedOutput<v_type> message;
@@ -196,136 +195,13 @@ namespace barrett {
     };
 
   }
-=======
-namespace systems {
-v_type msg_tmp;
-barrett::systems::ExposedOutput<v_type> message;
-
-class BalisticForce : public HapticObject {
-	BARRETT_UNITS_FIXED_SIZE_TYPEDEFS;
-
-public:
-	BalisticForce(const cp_type& center, 
-	
-			const std::string& sysName = "BalisticForce") :
-		HapticObject(sysName),
-		c(center),
-		depth(0.0), dir(0.0) 
-	{}
-	virtual ~BalisticForce() { mandatoryCleanUp(); }
-
-	const cp_type& getCenter() const { return c; }
-
-protected:
-	virtual void operate() {
-		pos = input.getValue();
-		for (int i=0;i<3;i++){
-			dir[i] = 0.0;
-		}
-		if (!thresholdMet){
-			cforce = c - pos;
-			if ((barrett::math::sign(forceThreshold)==1 && cforce[XorYorZ] >= forceThreshold) || (barrett::math::sign(forceThreshold)==-1 && cforce[XorYorZ] <= forceThreshold)){
-				thresholdMet = true;
-				std::cout << "threshold met" << std::endl;
-			}
-			
-			depth = cforce.norm();
-			dir[XorYorZ] = cforce[XorYorZ];
-		}else{
-			depth = 0.0;
-		}
-		for (int i=0;i<3;i++){
-			msg_tmp[i] = pos[i];
-		}
-		for (int i=3;i<6;i++){
-			msg_tmp[i]=0;
-		}
-		msg_tmp[XorYorZ+3] = UpOrDown * targetDistance;
-		
-		message.setValue(msg_tmp);
-		
-		depthOutputValue->setData(&depth);
-		directionOutputValue->setData(&dir);
-	}
-
-	cp_type c;
-
-	// state & temporaries
-
-	double depth;
-	cf_type dir;
-	
-
-private:
-	DISALLOW_COPY_AND_ASSIGN(BalisticForce);
-
-public:
-	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-};
-
-
-}
-}
-
-namespace barrett {
-namespace systems {
-
-
-class HapticLine : public HapticObject {
-	BARRETT_UNITS_FIXED_SIZE_TYPEDEFS;
-
-public:
-	HapticLine(const cp_type& center, 
-			const std::string& sysName = "HapticLine") :
-		HapticObject(sysName),
-		c(center),
-		depth(0.0), dir(0.0)
-	{}
-	virtual ~HapticLine() { mandatoryCleanUp(); }
-
-	const cp_type& getCenter() const { return c; }
-
-protected:
-	virtual void operate() {
-		inputForce = c - input.getValue();
-		inputForce[XorYorZ] = 0;
-		
-		depth = inputForce.norm();
-		dir = inputForce;
-		depthOutputValue->setData(&depth);
-		directionOutputValue->setData(&dir);
-	}
-
-	cp_type c;
-
-	// state & temporaries
-	cf_type inputForce;
-
-	double depth;
-	cf_type dir;
-
-private:
-	DISALLOW_COPY_AND_ASSIGN(HapticLine);
-
-public:
-	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-};
-
-
-}
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 }
 
 
 
 namespace cube_sphere {
-<<<<<<< HEAD
   /** When killed from outside (by GUI), this allows a graceful exit. */
   void exit_program_callback(int signum) { game_exit = true; }
-=======
-/** When killed from outside (by GUI), this allows a graceful exit. */
-void exit_program_callback(int signum) { game_exit = true; }
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 }  // namespace cube_sphere
 
 cf_type scale(boost::tuple<cf_type, double> t) {
@@ -507,16 +383,11 @@ int proficio_main(int argc, char** argv,
 				scores.push_back(trial_input_data.forceThreshold);
 				scores.push_back(trial_input_data.targetDistance);
 				scores.push_back(trial_input_data.targetError);
-<<<<<<< HEAD
 				std::cout << "                          ** Trial " << trialNumber << 
           " **                           "  << std::endl << "____________________________"
           "_______________________________________"  << std::endl << std::endl;
 				
         trialNumber++;
-=======
-				std::cout << "                          ** Trial " << trialNumber << " **                           "  << std::endl << "___________________________________________________________________"  << std::endl << std::endl;
-				trialNumber++;
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 				
 				XorYorZ = scores[0];
 				UpOrDown = scores[1];
@@ -526,16 +397,11 @@ int proficio_main(int argc, char** argv,
 				
 				
 				if (XorYorZ == 2){ UpOrDown *= -1;}
-<<<<<<< HEAD
 				std::cout << labels[0] << XorYorZ << std::endl << labels[1] << UpOrDown << 
           std::endl << labels[2] << forceThreshold << std::endl << labels[3] << 
           targetDistance << std::endl << labels[4] << target_error << std::endl;
 				
         forceThreshold *= UpOrDown;
-=======
-				std::cout << labels[0] << XorYorZ << std::endl << labels[1] << UpOrDown << std::endl << labels[2] << forceThreshold << std::endl << labels[3] << targetDistance << std::endl << labels[4] << target_error << std::endl;
-				forceThreshold *= UpOrDown;
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 				
 				for (int i=0; i<5;i++){
 					scores.pop_front();
@@ -555,13 +421,7 @@ int proficio_main(int argc, char** argv,
 		mod.SendMessageDF( &pos_M);
 		
 		// send messages signifying how far it is along the track
-<<<<<<< HEAD
 		// receive messages from consumer where the target is
-=======
-		
-		// receive messages from consumer where the target is
-		//
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 		jt = barrett::math::saturate(wam.getJointTorques(), 99.99);
 		MDF_FORCE_FEEDBACK force_data;
 		force_data.x = cforce[0];
@@ -572,15 +432,10 @@ int proficio_main(int argc, char** argv,
 		mod.SendMessageDF( &force_M);
 		// ** POSITION JUDGE**
 		double target_pos = UpOrDown*targetDistance + system_center[XorYorZ];
-<<<<<<< HEAD
 		if (target_pos - target_error < cp[XorYorZ] && cp[XorYorZ] < target_pos + target_error)
     {
 			if (timer > 10)
       {
-=======
-		if (target_pos - target_error < cp[XorYorZ] && cp[XorYorZ] < target_pos + target_error){
-			if (timer > 10){
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 				wam.moveTo(system_center);
 				
 				trialCompleted = true;
@@ -597,17 +452,11 @@ int proficio_main(int argc, char** argv,
 				
 				thresholdMet = false;
 				timer = 0;
-<<<<<<< HEAD
 				std::cout << "trialCompleted: " << trialCompleted << std::endl <<
           "scores.size(): " << scores.size() << std::endl;
 			}
 			else
       {
-=======
-				std::cout << "trialCompleted: " << trialCompleted << std::endl << "scores.size(): " << scores.size() << std::endl;
-			}
-			else{
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 				// send MT_TASK_STATE_CONFIG message to display a green light
 				
 				MDF_TASK_STATE_CONFIG task_state_data;
@@ -617,13 +466,9 @@ int proficio_main(int argc, char** argv,
 				mod.SendMessageDF( &M);
 				timer++;
 			}
-<<<<<<< HEAD
 		}
     else
     {
-=======
-		}else{
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
 			timer = 0;
 			// send red light to feedback display
 			
@@ -632,16 +477,9 @@ int proficio_main(int argc, char** argv,
 			CMessage M( MT_TASK_STATE_CONFIG);
 			M.SetData( &task_state_data, sizeof(task_state_data));
 			mod.SendMessageDF( &M);
-<<<<<<< HEAD
 		}
 	}
   // ** END POSITION JUDGE ** 
-=======
-			 
-		}
-	}
-    // ** END POSITION JUDGE ** 
->>>>>>> 3b0a634d450e54d1afaa138ab1d3b3a94c70e1d9
     
 	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE) {
 		wam.moveHome();
