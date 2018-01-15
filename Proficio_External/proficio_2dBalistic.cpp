@@ -411,7 +411,8 @@ int proficio_main(int argc, char** argv,
 				std::cout << "Unknown message type: " << Consumer_M.msg_type << std::endl;
 				break;
 		}		
-	}else{
+	} else
+  {
 		cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
 		// this code is to be sent to the python visualization
 		MDF_RT_POSITION_FEEDBACK pos_data;
