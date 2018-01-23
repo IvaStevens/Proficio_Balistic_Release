@@ -65,6 +65,11 @@ vector<TargetNode> initTargetList(
 };
 
 
+/**
+ * main
+ *
+ * Run Experiment on the Burt robot
+ */
 int main( int argc, char *argv[])
 {
 	try 

@@ -1,14 +1,15 @@
 /*  
  * Code to run Balistic Force Trials on the Proficio Robot
  * 
- * Author(s): Henry Friedlander 2017,
+ * Author(s): Henry Friedlander 2017, Ivana Stevens 2018
  * 
  */
  
 #include "proficio_2dBalistic.h"  
 #include "/home/robot/src/Proficio_Systems/magnitude.h"
 #include "/home/robot/src/Proficio_Systems/normalize.h"
-#include "/home/robot/src/Dragonfly_Message_defs/Dragonfly_config.h" 
+#include "/home/robot/src/Dragonfly_Message_defs/Dragonfly_config.h"
+#include "params.h"
 
 #include <dragonfly/Dragonfly.h>
 
@@ -18,7 +19,11 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
+#include <chrono>
 #include <stdio.h>
+#include <mutex>
+#include <thread>
+#include <ctime>
 
 #include <cmath>
 #include <Eigen/Core>
@@ -62,6 +67,9 @@ int UpOrDown;
 cf_type cforce;
 cp_type pos;
 
+/** 
+ * validate_args
+ */
 bool validate_args(int argc, char** argv) {
   switch (argc) {
     case 4:
@@ -88,6 +96,9 @@ namespace barrett {
       BARRETT_UNITS_FIXED_SIZE_TYPEDEFS;
 
     public:
+      /** 
+       * BalisticForce
+       */
       BalisticForce(const cp_type& center, 
       
           const std::string& sysName = "BalisticForce") :
@@ -100,6 +111,9 @@ namespace barrett {
       const cp_type& getCenter() const { return c; }
 
     protected:
+      /** 
+       * operate
+       */
       virtual void operate() {
         pos = input.getValue();
         for (int i=0;i<3;i++){
@@ -158,6 +172,9 @@ namespace barrett {
       BARRETT_UNITS_FIXED_SIZE_TYPEDEFS;
 
     public:
+      /** 
+       * HapticLine
+       */
       HapticLine(const cp_type& center, 
           const std::string& sysName = "HapticLine") :
         HapticObject(sysName),
@@ -169,6 +186,9 @@ namespace barrett {
       const cp_type& getCenter() const { return c; }
 
     protected:
+      /** 
+       * operate
+       */
       virtual void operate() {
         inputForce = c - input.getValue();
         inputForce[XorYorZ] = 0;
@@ -198,23 +218,35 @@ namespace barrett {
 }
 
 
-
 namespace cube_sphere {
-  /** When killed from outside (by GUI), this allows a graceful exit. */
+  /** 
+   * exit_program_callback
+   *
+   * When killed from outside (by GUI), this allows a graceful exit.
+   */
   void exit_program_callback(int signum) { game_exit = true; }
 }  // namespace cube_sphere
 
+
+/**
+ * scale
+ */
 cf_type scale(boost::tuple<cf_type, double> t) {
   return t.get<0>() * t.get<1>();
 }
 
 
-template <size_t DOF>
-int proficio_main(int argc, char** argv,
-                  barrett::ProductManager& product_manager,  // NOLINT
+/**
+ * instantiate_proficio
+ *
+ * Instantiate all of the BURT parameters
+ * These are not task specific so...
+ */
+void instantiate_proficio( barrett::ProductManager& product_manager,  // NOLINT
                   barrett::systems::Wam<DOF>& wam,           // NOLINT
-                  const Config& side) {
-  
+                  const cp_type system_center,
+                  const Config& side)
+{
   BARRETT_UNITS_TEMPLATE_TYPEDEFS(DOF);
   wam.gravityCompensate();
   std::srand(time(NULL)); //initialize the random seed
@@ -226,16 +258,14 @@ int proficio_main(int argc, char** argv,
   mod.ConnectToMMM();
   // Subscribe to executive messages
   mod.Subscribe( MT_TRIAL_INPUT);
-  
+  mod.Subscribe( MT_TASK_STATE_CONFIG );
   
   std::string filename = "calibration_data/wam3/";
   if (side == LEFT) {
     filename = filename + "LeftConfig.txt";
   } else if (side == RIGHT) {
     filename = filename + "RightConfig.txt";
-  }
-  
-  
+  }  
 
   // Catch kill signals if possible for a graceful exit.
   signal(SIGINT, cube_sphere::exit_program_callback);
@@ -251,7 +281,6 @@ int proficio_main(int argc, char** argv,
                                       remoteHost, &gravity_comp);
   
   const cp_type ball_center(0.4, -0.15, 0.05);
-  const cp_type system_center(0.450, -0.120, 0.250);
   wam.moveTo(system_center);
   printf("Done Moving Arm! \n");
   const cp_type box_center(0.35, 0.2, 0.0);
@@ -349,8 +378,49 @@ int proficio_main(int argc, char** argv,
   product_manager.getSafetyModule()->setTorqueLimit(3.0);
   wam.idle();
   barrett::systems::connect(joint_torque_saturation.output, wam.input);
+}
+
+
+/**
+ * get_timestamp
+ *
+ * Get time since January 1, 1970 (probably)
+ * @returns {unsigned long long} 
+ */
+unsigned long long getTimestamp()
+{
+  unsigned long long milliseconds_since_epoch =
+    std::chrono::system_clock::now().time_since_epoch() / 
+    std::chrono::milliseconds(1);
+  
+  return milliseconds_since_epoch;
+}
+
+
+/**
+ * proficio_main
+ *
+ * Run experiment in BURT robot
+ */
+template <size_t DOF>
+int proficio_main(int argc, char** argv,
+                  barrett::ProductManager& product_manager,  // NOLINT
+                  barrett::systems::Wam<DOF>& wam,           // NOLINT
+                  const Config& side) {
+  
+  // Initializing Dragonfly
+  Dragonfly_Module mod( MID_CUBE_SPHERE, 0);
+  mod.ConnectToMMM();
+  
+  // Subscribe to executive messages
+  mod.Subscribe( MT_TRIAL_INPUT);  
+  
+  // Instantiate Proficio
+  const cp_type system_center(0.450, -0.120, 0.250);
+  instantiate_proficio(product_manager, wam, system_center, side)
+
+  // Run Trial
   int trialNumber = 1;
-  int timer = 0;
   cp_type cp;
   cp_type target_center;
   jt_type jt;
@@ -358,6 +428,12 @@ int proficio_main(int argc, char** argv,
   target_center[1] = 0.417;
   target_center[2] = 0.366;
   double target_error = 0.03;
+  
+  bool taskComplete = false;
+  bool taskSuccess = false;
+  bool hasError = false;
+  int state = STATES.RESET;
+  
   std::deque<double> scores;
 	CMessage Consumer_M;
   std::string labels [5] = {"XorYorZ (0 -> x, 1 -> y, 2 -> z):                                 ",
@@ -367,52 +443,31 @@ int proficio_main(int argc, char** argv,
 							"targetError:                                                      "};
   
   bool trialCompleted = true;
+  
+  // These shouldn't be modifiable easily.
+  double targetWidth = 5;
+  double trackLength = 10;
+  // double zDepth = 0
+  double targetReached = false;
+  
+  // declare other params
+  double angle, distance, comboInd;
+ 
+  TargetZone trialManager = new TargetZone(system_center[0], system_center[1]
+                                          system_center[2], targetWidth,
+                                          trackLength); 
+  EnumParser<STATES> parser;
+  int taskState = 0; // Experiment state
+  int trialState = 0; // Burt trail state
+  
+  // TODO: timers should be passed from executive
+  int rampTimeF, holdTimeF, rampTimeT, holdTimeT;
+  rampTimeF = holdTimeF = rampTimeT = holdTimeT = 5;
+  
+  // Timer
+  clock_t timer;
+  
   while (true) {  // Allow the user to stop and resume with pendant buttons
-	if (trialCompleted){
-		mod.ReadMessage( &Consumer_M);
-		std::cout << "received message" << std::endl;
-		
-		switch( Consumer_M.msg_type) {
-			case MT_TRIAL_INPUT:
-				trialCompleted = false;
-				MDF_TRIAL_INPUT trial_input_data;
-				Consumer_M.GetData( &trial_input_data);
-				
-				scores.push_back(trial_input_data.XorYorZ);
-				scores.push_back(trial_input_data.UpOrDown);
-				scores.push_back(trial_input_data.forceThreshold);
-				scores.push_back(trial_input_data.targetDistance);
-				scores.push_back(trial_input_data.targetError);
-				std::cout << "                          ** Trial " << trialNumber << 
-          " **                           "  << std::endl << "____________________________"
-          "_______________________________________"  << std::endl << std::endl;
-				
-        trialNumber++;
-				
-				XorYorZ = scores[0];
-				UpOrDown = scores[1];
-				forceThreshold = scores[2];
-				targetDistance = scores[3];
-				target_error = scores[4];
-				
-				
-				if (XorYorZ == 2){ UpOrDown *= -1;}
-				std::cout << labels[0] << XorYorZ << std::endl << labels[1] << UpOrDown << 
-          std::endl << labels[2] << forceThreshold << std::endl << labels[3] << 
-          targetDistance << std::endl << labels[4] << target_error << std::endl;
-				
-        forceThreshold *= UpOrDown;
-				
-				for (int i=0; i<5;i++){
-					scores.pop_front();
-				}
-				break;
-			default:
-				std::cout << "Unknown message type: " << Consumer_M.msg_type << std::endl;
-				break;
-		}		
-	} else
-  {
 		cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
 		// this code is to be sent to the python visualization
 		MDF_RT_POSITION_FEEDBACK pos_data;
@@ -431,62 +486,175 @@ int proficio_main(int argc, char** argv,
 		CMessage force_M( MT_FORCE_FEEDBACK);
 		force_M.SetData( &force_data, sizeof(force_data));
 		mod.SendMessageDF( &force_M);
-		// ** POSITION JUDGE**
-		double target_pos = UpOrDown*targetDistance + system_center[XorYorZ];
-		if (target_pos - target_error < cp[XorYorZ] && cp[XorYorZ] < target_pos + target_error)
-    {
-			if (timer > 10)
-      {
-				wam.moveTo(system_center);
-				
-				trialCompleted = true;
-				
-				
-				MDF_TASK_STATE_CONFIG task_state_data;
-				strcpy(task_state_data.fdbk_display_color, "yellow");
-				CMessage task_state_config_M( MT_TASK_STATE_CONFIG);
-				task_state_config_M.SetData( &task_state_data, sizeof(task_state_data));
-				mod.SendMessageDF( &task_state_config_M);
-				
-				
-				scores.clear();
-				
-				thresholdMet = false;
-				timer = 0;
-				std::cout << "trialCompleted: " << trialCompleted << std::endl <<
-          "scores.size(): " << scores.size() << std::endl;
-			}
-			else
-      {
-				// send MT_TASK_STATE_CONFIG message to display a green light
-				
-				MDF_TASK_STATE_CONFIG task_state_data;
-				strcpy(task_state_data.fdbk_display_color, "green");
-				CMessage M( MT_TASK_STATE_CONFIG);
-				M.SetData( &task_state_data, sizeof(task_state_data));
-				mod.SendMessageDF( &M);
-				timer++;
-			}
-		}
-    else
-    {
-			timer = 0;
-			// send red light to feedback display
-			
-			MDF_TASK_STATE_CONFIG task_state_data;
-			strcpy(task_state_data.fdbk_display_color, "red");
-			CMessage M( MT_TASK_STATE_CONFIG);
-			M.SetData( &task_state_data, sizeof(task_state_data));
-			mod.SendMessageDF( &M);
-		}
-	}
-  // ** END POSITION JUDGE ** 
     
-	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE) {
+    MDF_BURT_STATUS burt_status_data;
+    
+    //------------- Ping for these stats-----------------------------    
+    // Set Task state
+    strcpy(burt_status_data.task_complete, taskComplete);
+    strcpy(burt_status_data.task_success, taskSuccess);
+    strcpy(burt_status_data.timestamp, getTimestamp());
+    strcpy(burt_status_data.state, state);
+    strcpy(burt_status_data.error, hasError);
+    
+    // Set Force Data
+    strcpy(burt_status_data.force_x, cforce[0]);
+    strcpy(burt_status_data.force_y, cforce[1]);
+    strcpy(burt_status_data.force_z, cforce[2]);
+    // Set Position Data
+    strcpy(burt_status_data.pos_x, cp[0]); // Assume this is accurate
+    strcpy(burt_status_data.pos_y, cp[1]); // TODO: check that cp has the right value
+    strcpy(burt_status_data.pos_z, cp[2]); // and is set properly
+    // Send Message
+    CMessage M( MT_BURT_STATUS );
+    M.SetData( &burt_status_data, sizeof(burt_status_data) );
+    mod.SendMessageDF( &M );
+    //-----------------------------------------------------------------
+		// ** POSITION JUDGE**
+    switch(state)
+    {
+      // Run the experiment
+      case STATES.START: //NOT SET HERE
+      {
+        wam.moveTo(system_center);
+        state = STATES.FORCE_RAMP; // intentional fall-through
+        timer = clock();
+      }
+      case STATES.FORCE_RAMP:
+      { // get to correct force in X time
+        if (rampTimeF > (clock() - timer) / (double) CLOCKS_PER_SEC)
+        {
+          mtx.lock();
+          state = STATES.FAIL;
+          taskSuccess = false;
+          mtx.unlock();
+          break;
+        }
+        // Check force vector
+        if (!trialManager.adequateForce(cforce[0], cforce[1], force, 0.1))
+        {
+          break;
+        }
+        mtx.lock();
+        state = STATES.FORCE_HOLD;
+        mtx.unlock();
+        timer = clock(); // reset timer and intentionally fall through
+      }
+      case STATES.FORCE_HOLD:
+      { // hold force for X time (?)
+        mtx.lock();
+        state = STATES.TARGET_MOVE;
+        mtx.unlock();
+        timer = clock();
+        //break; // TODO: intentional fall-through
+      }
+      case STATES.TARGET_MOVE:
+      { // Move to target    
+        if (rampTimeT > (clock() - timer) / (double) CLOCKS_PER_SEC)
+        {
+          mtx.lock();
+          state = STATES.FAIL;
+          taskSuccess = false;
+          mtx.unlock();
+          break;
+        }
+        // If exist track, fail
+        if (!trialManager.inZone(cp[0], cp[1])) // or time is up
+        {
+          mtx.lock();
+          state = STATES.FAIL;
+          taskSuccess = false;
+          mtx.unlock();
+          break;
+        }
+        else if (trialManager.inTarget(cp[0], cp[1]));
+        { // in target zone
+          timer = clock();
+          mtx.lock();
+          state = STATES.TARGET_HOLD; // intentional fall-through 
+          mtx.unlock();   
+        }
+        else
+        {
+          break;
+        }
+      }
+      case STATES.TARGET_HOLD:
+      {
+        if (holdTimeT > (clock() - timer) / (double) CLOCKS_PER_SEC)
+        {
+          // if held long enough then success
+          mtx.lock();
+          state = STATES.SUCCESS;
+          taskSuccess = true;
+          mtx.unlock();
+        }
+        // if exist zone, then fail
+        if (!trialManager.inTarget(cp[0], cp[1]));
+        {
+          mtx.lock();
+          state = STATES.FAIL;
+          taskSuccess = false;
+          mtx.unlock();
+        }
+        break;
+      }
+      // Reach target, send success message
+      case STATES.SUCCESS:
+      // Did not reach target send fail
+      case STATES.FAIL:
+      // reset parameters and prep for next round
+      case STATES.RESET: //NOT SET HERE
+      {
+        mtx.lock();
+        taskComplete = true;
+        mtx.unlock();
+        wam.moveTo(system_center);
+        mod.ReadMessage( &Consumer_M);
+        if (Consumer_M.msg_type == MT_TASK_STATE_CONFIG)
+        {
+          MDF_TASK_STATE_CONFIG task_state_data;
+          Consumer_M.GetData( &task_state_data);
+          distance = task_state_data.target;
+          state = task_state_data.state;
+          angle = task_state_data.direction;
+          
+          // Set new trial parameters
+          TargetZone.setTarget(distance, targetWidth);
+          TargetZone.rotate(angle);
+         
+          comboInd = task_state_data.target_combo_index;
+         
+          // Other for later....
+          //rep_num
+          //idle_timeout
+          //timeout
+          //ts_time
+        }
+        break;
+      }
+      // Error occurred stop everything until safe to restart
+      case STATES.ERROR:
+      {
+        // TODO
+        wam.moveTo(system_center);
+        break;
+      }
+      case STATES.REST: //NOT SET HERE
+      {
+        wam.moveTo(system_center);
+        // lock in place
+        break;
+      }
+    }
+    // ** END POSITION JUDGE ** 
+    
+	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)
+  {
 		wam.moveHome();
 		return 0;
-    }
-    barrett::btsleep(0.02);
+  }
+  barrett::btsleep(0.02);
 #ifndef NO_CONTROL_PENDANT
 #endif
   }
