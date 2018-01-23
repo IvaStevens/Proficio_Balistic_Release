@@ -5,52 +5,7 @@
 
 class TargetZone
 { 
-  // ======================= PROPERTIES =============================
-  private:
-    Rectangle _zone;
-    Rectangle _target;
-    Point _center; // System center
-    double _zDepth;
-    double _angle = 0;
-    
-  public:
-    Rectangle zoneR;
-    Rectangle targetR;
-    const int &angle;  
-  
-  //========================== METHODS ==============================
-  /**
-   * Manage the logic of determining where imaginary target region is
-   * and determining if the cursor is still within acceptable range
-   */
-  public:
-    /**
-     * Constructor
-     */
-    TargetZone(double centerX, double centerY, double centerZ,
-               double width, double length, double depth = 0) : angle(_angle)
-    {
-      _center = Point(centerX, centerY, centerZ);
-      double dx = length/2;
-      double dy = width/2;
-      
-      Point tl = _center + Point(dx, dy, 0);
-      Point bl = _center + Point(dx, -dy, 0);
-      Point br = _center + Point(-dx, -dy, 0);
-      Point tr = _center + Point(-dx, dy, 0);
-      
-      // set base zone and target region
-      _zone = Rectangle(tl, bl, br, tl);
-      _target = Rectangle(tl, bl, br, tl);
-      
-      // set accessible zone and target region
-      zoneR = Rectangle(tl, bl, br, tl);
-      targetR = Rectangle(tl, bl, br, tl);
-      
-      // set acceptable depth. Probably not used...
-      _zDepth = depth;
-    }
-    
+  //========================== STRUCTS ==============================
     /**
      * 3D point
      */
@@ -101,6 +56,52 @@ class TargetZone
       Point tr; // top right
       Rectangle() {}
       Rectangle(Point tl, Point bl, Point br, Point tr) : tl(tl), bl(bl), br(br), tr(tr) {}
+    };
+
+  // ======================= PROPERTIES =============================
+  private:
+    Rectangle _zone;
+    Rectangle _target;
+    Point _center; // System center
+    double _zDepth;
+    double _angle;
+    
+  public:
+    Rectangle zoneR;
+    Rectangle targetR;
+    const int &angle;  
+  
+  //========================== METHODS ==============================
+  /**
+   * Manage the logic of determining where imaginary target region is
+   * and determining if the cursor is still within acceptable range
+   */
+  public:
+    /**
+     * Constructor
+     */
+    TargetZone(double centerX, double centerY, double centerZ,
+               double width, double length, double depth = 0) : angle(_angle)
+    {
+      _center = Point(centerX, centerY, centerZ);
+      double dx = length/2;
+      double dy = width/2;
+      
+      Point tl = _center + Point(dx, dy, 0);
+      Point bl = _center + Point(dx, -dy, 0);
+      Point br = _center + Point(-dx, -dy, 0);
+      Point tr = _center + Point(-dx, dy, 0);
+      
+      // set base zone and target region
+      _zone = Rectangle(tl, bl, br, tl);
+      _target = Rectangle(tl, bl, br, tl);
+      
+      // set accessible zone and target region
+      zoneR = Rectangle(tl, bl, br, tl);
+      targetR = Rectangle(tl, bl, br, tl);
+      
+      // set acceptable depth. Probably not used...
+      _zDepth = depth;
     }
   
     /**
@@ -121,7 +122,7 @@ class TargetZone
       
       // set target region
       _target = Rectangle(tl, bl, br, tl);
-      targetR = rotateRectangle(_target, theta);
+      targetR = rotateRectangle(_target, _angle);
     }
      
     /**
@@ -145,7 +146,7 @@ class TargetZone
      */
     bool inRegion(Rectangle rectangle, Point p)
     {
-      Point* V = [rectangle.tl, rectangle.bl, rectangle.br, rectangle.tr];
+      Point V[4] {rectangle.tl, rectangle.bl, rectangle.br, rectangle.tr};
       return cn_PnPoly(p, V, 4) == 1; // 4 points in rectangle
     }
     
@@ -181,7 +182,7 @@ class TargetZone
     /**
      * Return magnitude of vector in 2d
      */
-    double magnitude(dx, dy)
+    double magnitude(double dx, double dy)
     {
       return sqrt(dx*dx + dy*dy);
     }
@@ -189,7 +190,7 @@ class TargetZone
     /**
      *
      */
-    bool adequateForce(fx, fy, minMag, tolerance)
+    bool adequateForce(double fx, double fy, double minMag, double tolerance)
     {
       // rotate unit vector about 0,0
       bool dir = inDirection(fx, cos(angle), fy, cos(angle), tolerance);
@@ -263,4 +264,4 @@ class TargetZone
       
       return Point(qx, qy, p.z);
     }
-}
+};

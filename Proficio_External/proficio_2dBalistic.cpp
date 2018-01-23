@@ -10,6 +10,7 @@
 #include "/home/robot/src/Proficio_Systems/normalize.h"
 #include "/home/robot/src/Dragonfly_Message_defs/Dragonfly_config.h"
 #include "params.h"
+#include "target_polygon.h"
 
 #include <dragonfly/Dragonfly.h>
 
@@ -66,6 +67,7 @@ double targetDistance;
 int UpOrDown;
 cf_type cforce;
 cp_type pos;
+
 
 /** 
  * validate_args
@@ -242,6 +244,7 @@ cf_type scale(boost::tuple<cf_type, double> t) {
  * Instantiate all of the BURT parameters
  * These are not task specific so...
  */
+template <size_t DOF>
 void instantiate_proficio( barrett::ProductManager& product_manager,  // NOLINT
                   barrett::systems::Wam<DOF>& wam,           // NOLINT
                   const cp_type system_center,
@@ -389,9 +392,10 @@ void instantiate_proficio( barrett::ProductManager& product_manager,  // NOLINT
  */
 unsigned long long getTimestamp()
 {
+  struct timeval tv;
   unsigned long long milliseconds_since_epoch =
-    std::chrono::system_clock::now().time_since_epoch() / 
-    std::chrono::milliseconds(1);
+    (unsigned long long)(tv.tv_sec) * 1000 +
+    (unsigned long long)(tv.tv_usec) / 1000;
   
   return milliseconds_since_epoch;
 }
@@ -417,7 +421,7 @@ int proficio_main(int argc, char** argv,
   
   // Instantiate Proficio
   const cp_type system_center(0.450, -0.120, 0.250);
-  instantiate_proficio(product_manager, wam, system_center, side)
+  instantiate_proficio(product_manager, wam, system_center, side);
 
   // Run Trial
   int trialNumber = 1;
@@ -432,7 +436,7 @@ int proficio_main(int argc, char** argv,
   bool taskComplete = false;
   bool taskSuccess = false;
   bool hasError = false;
-  int state = STATES.RESET;
+  int state = STATES->RESET;
   
   std::deque<double> scores;
 	CMessage Consumer_M;
@@ -453,9 +457,9 @@ int proficio_main(int argc, char** argv,
   // declare other params
   double angle, distance, comboInd;
  
-  TargetZone trialManager = new TargetZone(system_center[0], system_center[1]
-                                          system_center[2], targetWidth,
-                                          trackLength); 
+  TargetZone trialManager = new TargetZone(system_center[0]*, system_center[1]*,
+                                          system_center[2]*, targetWidth*,
+                                          trackLength*); 
   EnumParser<STATES> parser;
   int taskState = 0; // Experiment state
   int trialState = 0; // Burt trail state
@@ -466,6 +470,7 @@ int proficio_main(int argc, char** argv,
   
   // Timer
   clock_t timer;
+  boost::mutex mtx;
   
   while (true) {  // Allow the user to stop and resume with pendant buttons
 		cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
