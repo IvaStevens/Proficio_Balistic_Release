@@ -96,7 +96,7 @@ int main( int argc, char *argv[])
     // Read in yaml file
     vector<int> directions = {0, 1, 2};
     vector<double> forces = {0.01, 0.02, 0.03, 0.04};
-    vector<int> widths = {1, 2, 3, 4};
+    vector<int> widths = {1, 2, 3};
     vector<double> distances = {0.10, 0.15, 0.20};
 
     // Initialize targetList
@@ -105,11 +105,27 @@ int main( int argc, char *argv[])
     TargetNode currentTarget = *targetIter;
     TargetNode nextTarget = *targetIter;
 
+    // Send first message
+    MDF_TASK_STATE_CONFIG trial_input_data;
+    
+    // Set next Target
+    trial_input_data.state = currentState;
+    trial_input_data.direction = currentTarget.direction;
+    trial_input_data.force = currentTarget.force;
+    trial_input_data.distance = currentTarget.distance;
+    trial_input_data.target_width = currentTarget.width;
+    //trial_input_data.targetError = tError;
+    
+    // Send start message
+    CMessage task_state_config_M( MT_TASK_STATE_CONFIG);
+    task_state_config_M.SetData( &trial_input_data, sizeof(trial_input_data));
+    mod.SendMessageDF( &task_state_config_M);
+    
     // Run the experiment
     while(1)
     {
       CMessage M;
-			mod.ReadMessage( &M);
+      mod.ReadMessage( &M);
 
       // Check for new messages
       switch( M.msg_type)
@@ -126,7 +142,7 @@ int main( int argc, char *argv[])
         // BURT sent an msg about state termination.
         case MT_BURT_STATUS:
           MDF_BURT_STATUS burt_status_data;
-					M.GetData( &burt_status_data);
+          M.GetData( &burt_status_data);
           // if there is a success for given state
           if (burt_status_data.task_complete)
           {// move to the next state
@@ -156,28 +172,24 @@ int main( int argc, char *argv[])
             { // Determine next target (send out with state)
 
               // Send out RESET messages and next target parameters
-              MDF_TRIAL_INPUT trial_input_data;
-              CMessage trial_input_M( MT_TRIAL_INPUT);
-              trial_input_M.SetData( &trial_input_data, sizeof(trial_input_data));
-              mod.SendMessageDF( &trial_input_M);
-
-              MDF_TASK_STATE_CONFIG task_state_data;
-              CMessage task_state_config_M( MT_TASK_STATE_CONFIG);
-              task_state_config_M.SetData( &task_state_data, sizeof(task_state_data));
-              mod.SendMessageDF( &task_state_config_M);      
 
               // Set next Target
               trial_input_data.direction = currentTarget.direction;
-              trial_input_data.forceThreshold = currentTarget.force;
-              trial_input_data.targetDistance = currentTarget.distance;
-              trial_input_data.width = currentTarget.width;
-              trial_input_data.targetError = tError;
+              trial_input_data.force = currentTarget.force;
+              trial_input_data.distance = currentTarget.distance;
+              trial_input_data.target_width = currentTarget.width;
+              //trial_input_data.targetError = tError;
+              trial_input_data.state = nextState;
+              
+              // Send message
+              task_state_config_M.SetData( &trial_input_data, sizeof(trial_input_data));
+              mod.SendMessageDF( &task_state_config_M);
 
               // Print target definition
-              cout << "XorYorZ " << trial_input_data.XorYorZ << endl << "force threshold " 
-                << trial_input_data.forceThreshold  << endl << "target distance " 
-                << trial_input_data.targetDistance << endl << "UpOrDown " 
-                << trial_input_data.UpOrDown << endl;
+              cout << "force direction " << trial_input_data.direction << endl << "required force" 
+                << trial_input_data.force  << endl << " target distance" 
+                << trial_input_data.distance << endl << "Direction of movement" 
+                << trial_input_data.direction << endl;
               cout << "Sent out data" << endl;
 
               // If this is a rewardable transition, do so.
@@ -190,7 +202,8 @@ int main( int argc, char *argv[])
               userDefState = false;
               userDefTarget = false;
               nextTarget = currentTarget;
-            }            
+              break;
+            }
           }
       }
     }
@@ -213,6 +226,10 @@ int main( int argc, char *argv[])
 		MyCString s;
 		e.AppendTraceToString( s);
 		std::cout << "MyCException: " << s.GetContent() << std::endl;
+	}
+	catch( exception &e)
+	{
+		std::cout << "Unknown Exception!" << e.what() << std::endl;
 	}
 	catch(...)
 	{
