@@ -411,7 +411,9 @@ class MDF_TASK_STATE_CONFIG(Structure):
     pass
 MDF_TASK_STATE_CONFIG._fields_ = [
     ('id', c_int),
-    ('state', c_int),
+    ('state', c_double),
+    ('distance', c_double),
+    ('force', c_int),
     ('rep_num', c_int),
     ('use_for_calib', c_int),
     ('target_combo_index', c_int),

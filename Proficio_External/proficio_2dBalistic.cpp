@@ -8,7 +8,7 @@
 #include "proficio_2dBalistic.h"  
 #include "/home/robot/src/Proficio_Systems/magnitude.h"
 #include "/home/robot/src/Proficio_Systems/normalize.h"
-#include "/home/robot/src/Dragonfly_Message_defs/Dragonfly_config.h"
+#include "/home/robot/Proficio_Balistic_Release/Dragonfly_Message_defs/Dragonfly_config.h"
 #include "params.h"
 #include "target_polygon.h"
 
@@ -436,7 +436,7 @@ int proficio_main(int argc, char** argv,
   bool taskComplete = false;
   bool taskSuccess = false;
   bool hasError = false;
-  int state = STATES->RESET;
+  int state = RESET;
   
   std::deque<double> scores;
 	CMessage Consumer_M;
@@ -455,11 +455,11 @@ int proficio_main(int argc, char** argv,
   double targetReached = false;
   
   // declare other params
-  double angle, distance, comboInd;
+  double angle, distance, comboInd, force;
  
-  TargetZone trialManager = new TargetZone(system_center[0]*, system_center[1]*,
-                                          system_center[2]*, targetWidth*,
-                                          trackLength*); 
+  TargetZone * trialManager = new TargetZone(system_center[0], system_center[1],
+                                          system_center[2], targetWidth,
+                                          trackLength); 
   EnumParser<STATES> parser;
   int taskState = 0; // Experiment state
   int trialState = 0; // Burt trail state
@@ -483,7 +483,7 @@ int proficio_main(int argc, char** argv,
 		
 		// send messages signifying how far it is along the track
 		// receive messages from consumer where the target is
-		jt = barrett::math::saturate(wam.getJointTorques(), 99.99);
+		// jt = barrett::math::saturate(wam.getJointTorques(), 99.99);
 		MDF_FORCE_FEEDBACK force_data;
 		force_data.x = cforce[0];
 		force_data.y = cforce[1];
@@ -496,87 +496,90 @@ int proficio_main(int argc, char** argv,
     
     //------------- Ping for these stats-----------------------------    
     // Set Task state
-    strcpy(burt_status_data.task_complete, taskComplete);
-    strcpy(burt_status_data.task_success, taskSuccess);
-    strcpy(burt_status_data.timestamp, getTimestamp());
-    strcpy(burt_status_data.state, state);
-    strcpy(burt_status_data.error, hasError);
+    burt_status_data.task_complete = taskComplete;
+    burt_status_data.task_success = taskSuccess;
+    burt_status_data.timestamp = getTimestamp();
+    burt_status_data.state = state;
+    burt_status_data.error = hasError;
     
     // Set Force Data
-    strcpy(burt_status_data.force_x, cforce[0]);
-    strcpy(burt_status_data.force_y, cforce[1]);
-    strcpy(burt_status_data.force_z, cforce[2]);
+    burt_status_data.force_x = cforce[0];
+    burt_status_data.force_y = cforce[1];
+    burt_status_data.force_z = cforce[2];
+    
     // Set Position Data
-    strcpy(burt_status_data.pos_x, cp[0]); // Assume this is accurate
-    strcpy(burt_status_data.pos_y, cp[1]); // TODO: check that cp has the right value
-    strcpy(burt_status_data.pos_z, cp[2]); // and is set properly
+    burt_status_data.pos_x = cp[0]; // Assume this is accurate
+    burt_status_data.pos_y = cp[1]; // TODO: check that cp has the right value
+    burt_status_data.pos_z = cp[2]; // and is set properly
+    
     // Send Message
     CMessage M( MT_BURT_STATUS );
     M.SetData( &burt_status_data, sizeof(burt_status_data) );
     mod.SendMessageDF( &M );
+    
     //-----------------------------------------------------------------
 		// ** POSITION JUDGE**
     switch(state)
     {
       // Run the experiment
-      case STATES.START: //NOT SET HERE
+      case START: //NOT SET HERE
       {
         wam.moveTo(system_center);
-        state = STATES.FORCE_RAMP; // intentional fall-through
+        state = FORCE_RAMP; // intentional fall-through
         timer = clock();
       }
-      case STATES.FORCE_RAMP:
+      case FORCE_RAMP:
       { // get to correct force in X time
         if (rampTimeF > (clock() - timer) / (double) CLOCKS_PER_SEC)
         {
           mtx.lock();
-          state = STATES.FAIL;
+          state = FAIL;
           taskSuccess = false;
           mtx.unlock();
           break;
         }
         // Check force vector
-        if (!trialManager.adequateForce(cforce[0], cforce[1], force, 0.1))
+        if (!trialManager->adequateForce(cforce[0], cforce[1], force, 0.1))
         {
           break;
         }
         mtx.lock();
-        state = STATES.FORCE_HOLD;
+        state = FORCE_HOLD;
         mtx.unlock();
         timer = clock(); // reset timer and intentionally fall through
       }
-      case STATES.FORCE_HOLD:
+      case FORCE_HOLD:
       { // hold force for X time (?)
         mtx.lock();
-        state = STATES.TARGET_MOVE;
+        state = TARGET_MOVE;
         mtx.unlock();
         timer = clock();
         //break; // TODO: intentional fall-through
       }
-      case STATES.TARGET_MOVE:
+      case TARGET_MOVE:
       { // Move to target    
         if (rampTimeT > (clock() - timer) / (double) CLOCKS_PER_SEC)
         {
           mtx.lock();
-          state = STATES.FAIL;
+          state = FAIL;
           taskSuccess = false;
           mtx.unlock();
           break;
         }
         // If exist track, fail
-        if (!trialManager.inZone(cp[0], cp[1])) // or time is up
+        if (!trialManager->inZone(cp[0], cp[1])) // or time is up
         {
           mtx.lock();
-          state = STATES.FAIL;
+          state = FAIL;
           taskSuccess = false;
           mtx.unlock();
           break;
         }
-        else if (trialManager.inTarget(cp[0], cp[1]));
+        else if (trialManager->inTarget(cp[0], cp[1]))
         { // in target zone
           timer = clock();
           mtx.lock();
-          state = STATES.TARGET_HOLD; // intentional fall-through 
+          state = TARGET_HOLD; // intentional fall-through 
           mtx.unlock();   
         }
         else
@@ -584,32 +587,32 @@ int proficio_main(int argc, char** argv,
           break;
         }
       }
-      case STATES.TARGET_HOLD:
+      case TARGET_HOLD:
       {
         if (holdTimeT > (clock() - timer) / (double) CLOCKS_PER_SEC)
         {
           // if held long enough then success
           mtx.lock();
-          state = STATES.SUCCESS;
+          state = SUCCESS;
           taskSuccess = true;
           mtx.unlock();
         }
         // if exist zone, then fail
-        if (!trialManager.inTarget(cp[0], cp[1]));
+        if (!trialManager->inTarget(cp[0], cp[1]));
         {
           mtx.lock();
-          state = STATES.FAIL;
+          state = FAIL;
           taskSuccess = false;
           mtx.unlock();
         }
         break;
       }
       // Reach target, send success message
-      case STATES.SUCCESS:
+      case SUCCESS:
       // Did not reach target send fail
-      case STATES.FAIL:
+      case FAIL:
       // reset parameters and prep for next round
-      case STATES.RESET: //NOT SET HERE
+      case RESET: //NOT SET HERE
       {
         mtx.lock();
         taskComplete = true;
@@ -620,13 +623,15 @@ int proficio_main(int argc, char** argv,
         {
           MDF_TASK_STATE_CONFIG task_state_data;
           Consumer_M.GetData( &task_state_data);
-          distance = task_state_data.target;
+          distance = task_state_data.distance;
           state = task_state_data.state;
           angle = task_state_data.direction;
+          force = task_state_data.force;
           
           // Set new trial parameters
-          TargetZone.setTarget(distance, targetWidth);
-          TargetZone.rotate(angle);
+          trialManager->setTarget(distance, targetWidth);
+          trialManager->
+          rotate(angle);
          
           comboInd = task_state_data.target_combo_index;
          
@@ -639,13 +644,13 @@ int proficio_main(int argc, char** argv,
         break;
       }
       // Error occurred stop everything until safe to restart
-      case STATES.ERROR:
+      case ERROR:
       {
         // TODO
         wam.moveTo(system_center);
         break;
       }
-      case STATES.REST: //NOT SET HERE
+      case REST: //NOT SET HERE
       {
         wam.moveTo(system_center);
         // lock in place

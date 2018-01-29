@@ -331,6 +331,9 @@ typedef struct {
 #define MAX_HAND_DIMS       MAX_FINGER_DIMS+MAX_PERCEPT_DIMS
 #define MAX_SEPARATE_DIMS   12
 typedef struct {
+  int    state;
+  double force;
+  double distance;
 	int    id;
     int    rep_num;
     int    use_for_calib;
@@ -377,6 +380,10 @@ typedef struct {
   double  pos_x;
   double  pos_y;
   double  pos_z;
+  double  force_x;
+  double  force_y;
+  double  force_z;
+  int     state;
 } MDF_BURT_STATUS;
 
 typedef struct {
