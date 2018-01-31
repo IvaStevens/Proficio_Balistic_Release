@@ -656,8 +656,7 @@ int proficio_main(int argc, char** argv,
         // lock in place
         break;
       }
-    }
-    // ** END POSITION JUDGE ** 
+    } // ** END POSITION JUDGE ** 
     
 	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)
   {

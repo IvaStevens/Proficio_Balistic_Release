@@ -334,6 +334,7 @@ typedef struct {
   int    state;
   double force;
   double distance;
+  double target_width;
 	int    id;
     int    rep_num;
     int    use_for_calib;
@@ -375,7 +376,7 @@ typedef struct {
   char    error_msg[64];
   bool    task_complete;
   bool    task_success;
-  double  timestamp;
+  unsigned long long  timestamp;
   double  user_force;
   double  pos_x;
   double  pos_y;

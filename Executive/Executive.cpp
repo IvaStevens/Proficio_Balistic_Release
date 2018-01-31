@@ -93,7 +93,7 @@ int main( int argc, char *argv[])
     double tError = 0.03;
     int nextState = (currentState % (nStates)) + 1;
 
-    // Read in yaml file
+    //TODO Read in yaml file
     vector<int> directions = {0, 1, 2};
     vector<double> forces = {0.01, 0.02, 0.03, 0.04};
     vector<int> widths = {1, 2, 3};
@@ -141,6 +141,7 @@ int main( int argc, char *argv[])
 
         // BURT sent an msg about state termination.
         case MT_BURT_STATUS:
+        {
           MDF_BURT_STATUS burt_status_data;
           M.GetData( &burt_status_data);
           // if there is a success for given state
@@ -148,15 +149,17 @@ int main( int argc, char *argv[])
           {// move to the next state
             if (burt_status_data.task_success)
             {
-              shouldReset = false;
+              shouldReset = true;
               if (!userDefState)
               { // progress next state as usual if not set else where
                 nextState = (currentState % (nStates)) + 1;
               }
             // Subject error occurred, start next trial, no reward
-            } else {
-              shouldReset = true;
+            } 
+            else
+            {
               rewardable = false;
+              shouldReset = true;
               break;
             }
             // pull up next TARGET parameters
@@ -178,6 +181,7 @@ int main( int argc, char *argv[])
               trial_input_data.force = currentTarget.force;
               trial_input_data.distance = currentTarget.distance;
               trial_input_data.target_width = currentTarget.width;
+              
               //trial_input_data.targetError = tError;
               trial_input_data.state = nextState;
               
@@ -186,14 +190,13 @@ int main( int argc, char *argv[])
               mod.SendMessageDF( &task_state_config_M);
 
               // Print target definition
-              cout << "force direction " << trial_input_data.direction << endl << "required force" 
-                << trial_input_data.force  << endl << " target distance" 
-                << trial_input_data.distance << endl << "Direction of movement" 
+              cout << "Sending out next trial data..." << endl << "required force: " 
+                << trial_input_data.force  << endl << "Target distance: " 
+                << trial_input_data.distance << endl << "Direction of movement: " 
                 << trial_input_data.direction << endl;
-              cout << "Sent out data" << endl;
 
               // If this is a rewardable transition, do so.
-              if (!shouldReset) {
+              if (rewardable) {
                 cout << "REWARD!!!" << endl;
               }
 
@@ -202,9 +205,29 @@ int main( int argc, char *argv[])
               userDefState = false;
               userDefTarget = false;
               nextTarget = currentTarget;
-              break;
+              
+              // TODO: THIS SHOULD BE REMOVED LATER
+              trial_input_data.state =  START;
+              task_state_config_M.SetData( &trial_input_data, sizeof(trial_input_data));
+              mod.SendMessageDF( &task_state_config_M); 
+              
+            }
+            else
+            {
+              // Send message
+              trial_input_data.state = REST;
+              task_state_config_M.SetData( &trial_input_data, sizeof(trial_input_data));
+              mod.SendMessageDF( &task_state_config_M);              
             }
           }
+          break;
+        }
+          
+        // Default because we are running into issues
+        default:
+        {
+          std::cout << "weird message sent: " << M.msg_type << std::endl;
+        }
       }
     }
     // ===================================================================================

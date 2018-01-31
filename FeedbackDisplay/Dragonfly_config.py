@@ -397,17 +397,24 @@ MDF_BURT_STATUS._fields_ = [
     ('error_msg', c_char * 64),
     ('task_complete', c_bool),
     ('task_success', c_bool),
-    ('timestamp', c_double),
+    ('timestamp', c_ulonglong),
     ('user_force', c_double),
     ('pos_x', c_double),
     ('pos_y', c_double),
     ('pos_z', c_double),
+    ('force_x', c_double),
+    ('force_y', c_double),
+    ('force_z', c_double),
+    ('state', c_int),
 ]
 class MDF_TASK_STATE_CONFIG(Structure):
     pass
 MDF_TASK_STATE_CONFIG._fields_ = [
-    ('id', c_int),
     ('state', c_int),
+    ('force', c_double),
+    ('distance', c_double),
+    ('target_width', c_double),
+    ('id', c_int),
     ('rep_num', c_int),
     ('use_for_calib', c_int),
     ('target_combo_index', c_int),
