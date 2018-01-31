@@ -125,6 +125,7 @@ typedef struct {
 #define MT_CHANGE_TOOL_FAILED           1943
 
 #define MT_BURT_STATUS            1269
+#define MT_MODIFY_TASK            9621
 #define MT_TASK_STATE_CONFIG		    1950
 #define MT_JUDGE_VERDICT			    1960
 #define MT_END_TASK_STATE			    1970
@@ -386,6 +387,15 @@ typedef struct {
   double  force_z;
   int     state;
 } MDF_BURT_STATUS;
+
+typedef struct {
+  int     type;
+  int     reward_level;
+  double  force;
+  double  distance;
+  double  target_width;
+  int     direction;
+} MDF_MODIFY_TASK;
 
 typedef struct {
 	int  id;

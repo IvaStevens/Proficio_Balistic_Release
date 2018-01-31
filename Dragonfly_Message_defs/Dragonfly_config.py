@@ -390,6 +390,16 @@ MDF_CHANGE_TOOL_COMPLETE._fields_ = [
     ('tool_id', c_int),
     ('reserved', c_int),
 ]
+class MDF_MODIFY_TASK(Structure):
+    pass
+MDF_MODIFY_TASK._fields_ = [
+    ('type', c_int),
+    ('reward_level', c_int),
+    ('force', c_double),
+    ('distance', c_double),
+    ('target_width', c_double),
+    ('direction', c_int),
+]
 class MDF_BURT_STATUS(Structure):
     pass
 MDF_BURT_STATUS._fields_ = [
@@ -788,7 +798,8 @@ MID_IO_MOD = 60 # Variable c_int '60'
 MT_LATE_ADAPT_NOW = 1005 # Variable c_int '1005'
 MT_END_TASK_STATE = 1970 # Variable c_int '1970'
 MID_SSH_CONTROLLER = 35 # Variable c_int '35'
-MT_BURT_STATUS = 1269 # Variable c_int '1950'
+MT_BURT_STATUS = 1269 # Variable c_int '1269'
+MT_MODIFY_TASK = 9621 # Variable c_int '9621'
 MT_TASK_STATE_CONFIG = 1950 # Variable c_int '1950'
 MT_CLEAR_FUNCTION = 1003 # Variable c_int '1003'
 MT_DENSO_INITIALIZE = 801 # Variable c_int '801'
@@ -1004,7 +1015,7 @@ __all__ = ['MT_EM_MOVEMENT_COMMAND', 'MT_OVERRIDE_COMMAND',
            'MDF_IDLE', 'MID_SPM_MOD1', 'MID_SPM_MOD2', 'MID_SPM_MOD3',
            'MT_DENSO_WIGGLE', 'MID_GROBOT_FEEDBACK', 'MT_KIN_POS_CMD',
            'MT_DENSO_HALTED', 'MDF_ANALOG_STREAM',
-           'MT_TASK_STATE_CONFIG', 'MT_BURT_STATUS', 'MT_DENSO_INITIALIZE',
+           'MT_TASK_STATE_CONFIG', 'MT_MODIFY_TASK', 'MT_BURT_STATUS', 'MT_DENSO_INITIALIZE',
            'NUM_ANALOG_STREAM_CHANS', 'STRING_DATA', 'MDF_MUSCLE',
            'MDF_CERESTIM_CONFIG_CHAN', 'MPL_AT_ARM_EPV_FING_JV',
            'MT_FIXTURED_COMPOSITE_MOVEMENT_COMMAND',
@@ -1016,7 +1027,7 @@ __all__ = ['MT_EM_MOVEMENT_COMMAND', 'MT_OVERRIDE_COMMAND',
            'MPL_AT_ALL_JP', 'MT_IDLE', 'MT_IDLY_RESET_LABELLING',
            'MDF_CHANGE_TOOL', 'MAX_SEPARATE_DIMS', 'MID_HANDY_DANDY',
            'MT_ATTENTION', 'MDF_CODE_VERSION', 'MDF_CLEAR_FUNCTION',
-           'MDF_TASK_STATE_CONFIG', 'MDF_BURT_STATUS', 'MT_TRIAL_INPUT',
+           'MDF_TASK_STATE_CONFIG', 'MDF_MODIFY_TASK', 'MDF_BURT_STATUS', 'MT_TRIAL_INPUT',
            'MAX_GROBOT_COMMAND_DIMS', 'MID_EM_OVERRIDE_CONFIG',
            'MID_TEST_MOD', 'MT_DENSO_CONFIG', 'MT_TRIAL_DATA_SAVED',
            'MDF_GIVE_REWARD', 'MDF_FSR', 'MT_WAM_HAND_FEEDBACK',
