@@ -20,10 +20,10 @@
 #include <iostream>
 #include <fstream>
 #include <time.h>
-#include <chrono>
+//#include <chrono>
 #include <stdio.h>
-#include <mutex>
-#include <thread>
+//#include <mutex>
+//#include <thread>
 #include <ctime>
 
 #include <cmath>
@@ -256,12 +256,6 @@ void instantiate_proficio( barrett::ProductManager& product_manager,  // NOLINT
   barrett::SafetyModule* safety_module = product_manager.getSafetyModule();
   barrett::SafetyModule::PendantState ps;
   safety_module->getPendantState(&ps);
-  // Initializing Dragonfly
-  Dragonfly_Module mod( MID_CUBE_SPHERE, 0);
-  mod.ConnectToMMM();
-  // Subscribe to executive messages
-  mod.Subscribe( MT_TRIAL_INPUT);
-  mod.Subscribe( MT_TASK_STATE_CONFIG );
   
   std::string filename = "calibration_data/wam3/";
   if (side == LEFT) {
@@ -414,10 +408,18 @@ int proficio_main(int argc, char** argv,
   
   // Initializing Dragonfly
   Dragonfly_Module mod( MID_CUBE_SPHERE, 0);
-  mod.ConnectToMMM();
+  try
+  {
+    mod.ConnectToMMM();
+  }
+  catch( exception &e)
+	{
+		std::cout << "Unknown Exception!" << e.what() << std::endl;
+	}
   
   // Subscribe to executive messages
-  mod.Subscribe( MT_TRIAL_INPUT);  
+  mod.Subscribe( MT_TRIAL_INPUT);
+  mod.Subscribe( MT_TASK_STATE_CONFIG);
   
   // Instantiate Proficio
   const cp_type system_center(0.450, -0.120, 0.250);
@@ -436,7 +438,7 @@ int proficio_main(int argc, char** argv,
   bool taskComplete = false;
   bool taskSuccess = false;
   bool hasError = false;
-  int state = RESET;
+  int state = START;
   
   std::deque<double> scores;
 	CMessage Consumer_M;
@@ -448,7 +450,7 @@ int proficio_main(int argc, char** argv,
   
   bool trialCompleted = true;
   
-  // These shouldn't be modifiable easily.
+  // Todo: these shouldn't be modifiable easily.
   double targetWidth = 5;
   double trackLength = 10;
   // double zDepth = 0
@@ -466,11 +468,11 @@ int proficio_main(int argc, char** argv,
   
   // TODO: timers should be passed from executive
   int rampTimeF, holdTimeF, rampTimeT, holdTimeT;
-  rampTimeF = holdTimeF = rampTimeT = holdTimeT = 5;
+  rampTimeF = holdTimeF = rampTimeT = holdTimeT = 50*CLOCKS_PER_SEC;
   
   // Timer
   clock_t timer;
-  boost::mutex mtx;
+  //boost::mutex mtx;
   
   while (true) {  // Allow the user to stop and resume with pendant buttons
 		cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
@@ -507,16 +509,17 @@ int proficio_main(int argc, char** argv,
     burt_status_data.force_y = cforce[1];
     burt_status_data.force_z = cforce[2];
     
-    // Set Position Data
-    burt_status_data.pos_x = cp[0]; // Assume this is accurate
-    burt_status_data.pos_y = cp[1]; // TODO: check that cp has the right value
-    burt_status_data.pos_z = cp[2]; // and is set properly
+    // Set Position Data  TODO: MOVE CONVERSION ELSEWHERE
+    burt_status_data.pos_x = cp[0]* 1280 / 0.2; // Assume this is accurate
+    burt_status_data.pos_y = cp[1]* 1280 / 0.2; // TODO: check that cp has the right value
+    burt_status_data.pos_z = cp[2]* 1280 / 0.2; // and is set properly
     
     // Send Message
     CMessage M( MT_BURT_STATUS );
     M.SetData( &burt_status_data, sizeof(burt_status_data) );
     mod.SendMessageDF( &M );
     
+    std::cout << "while..." << std::endl;
     //-----------------------------------------------------------------
 		// ** POSITION JUDGE**
     switch(state)
@@ -525,17 +528,21 @@ int proficio_main(int argc, char** argv,
       case START: //NOT SET HERE
       {
         wam.moveTo(system_center);
+        std::cout << "Starting..." << std::endl;
         state = FORCE_RAMP; // intentional fall-through
         timer = clock();
       }
       case FORCE_RAMP:
       { // get to correct force in X time
-        if (rampTimeF > (clock() - timer) / (double) CLOCKS_PER_SEC)
+        std::cout << "State: " << state << std::endl; 
+        if (rampTimeF < (clock() - timer))
         {
-          mtx.lock();
+          //mtx.lock();
+          std::cout << "OUT OF TIME A" << state << std::endl;
           state = FAIL;
           taskSuccess = false;
-          mtx.unlock();
+          taskComplete = true;
+          //mtx.unlock();
           break;
         }
         // Check force vector
@@ -543,44 +550,51 @@ int proficio_main(int argc, char** argv,
         {
           break;
         }
-        mtx.lock();
+        //mtx.lock();
         state = FORCE_HOLD;
-        mtx.unlock();
+        //mtx.unlock();
         timer = clock(); // reset timer and intentionally fall through
       }
       case FORCE_HOLD:
       { // hold force for X time (?)
-        mtx.lock();
+        std::cout << "State: " << state << std::endl; 
+        //mtx.lock();
         state = TARGET_MOVE;
-        mtx.unlock();
+        //mtx.unlock();
         timer = clock();
         //break; // TODO: intentional fall-through
       }
       case TARGET_MOVE:
-      { // Move to target    
-        if (rampTimeT > (clock() - timer) / (double) CLOCKS_PER_SEC)
+      { 
+        std::cout << "State: " << state << std::endl; 
+        // Move to target    
+        if (rampTimeT < (clock() - timer))
         {
-          mtx.lock();
+          //mtx.lock();
+          std::cout << "OUT OF TIME B" << state << std::endl;
           state = FAIL;
           taskSuccess = false;
-          mtx.unlock();
+          taskComplete = true;
+          //mtx.unlock();
           break;
         }
         // If exist track, fail
+        /*
         if (!trialManager->inZone(cp[0], cp[1])) // or time is up
         {
-          mtx.lock();
+          //mtx.lock();
           state = FAIL;
           taskSuccess = false;
-          mtx.unlock();
+          taskComplete = true;
+          //mtx.unlock();
           break;
-        }
+        } */
         else if (trialManager->inTarget(cp[0], cp[1]))
         { // in target zone
           timer = clock();
-          mtx.lock();
+          //mtx.lock();
           state = TARGET_HOLD; // intentional fall-through 
-          mtx.unlock();   
+          //mtx.unlock();   
         }
         else
         {
@@ -589,38 +603,44 @@ int proficio_main(int argc, char** argv,
       }
       case TARGET_HOLD:
       {
-        if (holdTimeT > (clock() - timer) / (double) CLOCKS_PER_SEC)
+        std::cout << "State: " << state << std::endl; 
+        if (holdTimeT > (clock() - timer))
         {
           // if held long enough then success
-          mtx.lock();
+          //mtx.lock();
           state = SUCCESS;
           taskSuccess = true;
-          mtx.unlock();
+          taskComplete = true;
+          //mtx.unlock();
         }
-        // if exist zone, then fail
+        // if exits zone, then fail
+        /*
         if (!trialManager->inTarget(cp[0], cp[1]));
         {
-          mtx.lock();
+          //mtx.lock();
           state = FAIL;
           taskSuccess = false;
-          mtx.unlock();
-        }
+          taskComplete = true;
+          //mtx.unlock();
+        } */
         break;
       }
       // Reach target, send success message
       case SUCCESS:
+        std::cout << "State success: " << state << std::endl; 
       // Did not reach target send fail
       case FAIL:
+        std::cout << "State fail: " << state << std::endl; 
       // reset parameters and prep for next round
       case RESET: //NOT SET HERE
       {
-        mtx.lock();
-        taskComplete = true;
-        mtx.unlock();
+        taskComplete = false;
+        std::cout << "State reseting: " << state << std::endl; 
         wam.moveTo(system_center);
         mod.ReadMessage( &Consumer_M);
         if (Consumer_M.msg_type == MT_TASK_STATE_CONFIG)
         {
+          std::cout << "New message" << std::endl; 
           MDF_TASK_STATE_CONFIG task_state_data;
           Consumer_M.GetData( &task_state_data);
           distance = task_state_data.distance;
@@ -646,15 +666,21 @@ int proficio_main(int argc, char** argv,
       // Error occurred stop everything until safe to restart
       case ERROR:
       {
+        std::cout << "State: " << state << std::endl; 
         // TODO
         wam.moveTo(system_center);
         break;
       }
       case REST: //NOT SET HERE
       {
+        std::cout << "State: " << state << std::endl; 
         wam.moveTo(system_center);
         // lock in place
         break;
+      }
+      default:
+      {
+       std::cout << "State: " << state << std::endl; 
       }
     } // ** END POSITION JUDGE ** 
     

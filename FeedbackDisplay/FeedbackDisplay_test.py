@@ -13,7 +13,7 @@ from cocos.sprite import Sprite
 from cocos.text import Label
 
 from enumParser import ENUMS as enums
-
+#bp()
 from primitives import Polygon, Circle
 
 from shapely.geometry import Point
@@ -99,7 +99,7 @@ class Display(ColorLayer):
         self.blank_display = False
         self.background = ColorLayer(*GRY_L)
         
-        self.currentState = enums.STATE.RESET
+        self.currentState = enums.STATES.RESET
         
         #positionOrigin = self.getPositionBarOrigin(self.width, self.height)
         self.position_bar = Polygon(v=POSITION_ORIGIN, color=(0.05, 0.05, 0.05, 1), stroke=0)
@@ -196,14 +196,14 @@ class Display(ColorLayer):
     # Rotate a point around specified origin
     def rotatePoint(self, oldPoint, angle, origin):
         ox, oy = origin
-        print("origin: ", origin)
+        #print("origin: ", origin)
         px, py = oldPoint
-        print "old point: ", oldPoint
-        print "angle", angle
+        #print "old point: ", oldPoint
+        #print "angle", angle
         
         qx = ox + (math.cos(angle) * (px - ox)) - (math.sin(angle) * (py - oy))
         qy = oy + (math.sin(angle) * (px - ox)) + (math.cos(angle) * (py - oy))
-        print "new point: ", qx, qy
+        #print "new point: ", qx, qy
         return qx, qy
     
     # Move the target origin, and change its sixe
@@ -287,8 +287,8 @@ class Display(ColorLayer):
         # print "rotating"
         polygon.v = rotated
         # self.resizePolygon(self.position_bar)
-        if topL[0] > 0:
-          print rotated
+        #if topL[0] > 0:
+          #print rotated
         return rotated
 
 
@@ -327,12 +327,11 @@ class Display(ColorLayer):
 
     def update(self, dt):
         global currentAngle
-        print "updating...."
+        #print "updating...."
         #bp()
         while True:
-            time.sleep(1)
             rcv = self.mod.ReadMessage(self.msg, 0)
-            currentAngle = (currentAngle + 45) % 360
+            #currentAngle = (currentAngle + 45) % 360
             #self.rotatePositionBar(currentAngle)
             if rcv == 1:
                 hdr = self.msg.GetHeader()
@@ -345,19 +344,22 @@ class Display(ColorLayer):
                 
                 # Get cursor position from BURT
                 elif msg_type == rc.MT_BURT_STATUS:
-                    mdf = rc.MDF_INPUT_DOF_DATA()
+                    bp()
+                    mdf = rc.MDF_BURT_STATUS()
                     copy_from_msg(mdf, self.msg)
-                    x, y = mapBurt2Display(mdf.pos_x, mdf.pos_y, mdf.pos_z)
+                    # x, y = mapBurt2Display(mdf.pos_x, mdf.pos_y, mdf.pos_z) #ALREADY CONERTED
+                    x = mdf.pos_x
+                    y = mdf.pos_y
                     self.moveCursor(x, y)
                     
                     # change state to show success or failure
                     if mdf.task_complete:
                         if mdf.task_success:
                             #self.setState(mdf, state)
-                            pass
+                            pass #TODO
                         else:
                             #self.setState(mdf, state)
-                            pass                
+                            pass #TODO
                 
                 # Get state information from Exec
                 elif msg_type == rc.MT_TASK_STATE_CONFIG:

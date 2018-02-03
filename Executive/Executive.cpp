@@ -142,6 +142,7 @@ int main( int argc, char *argv[])
         // BURT sent an msg about state termination.
         case MT_BURT_STATUS:
         {
+          std::cout << "burt message sent \n";
           MDF_BURT_STATUS burt_status_data;
           M.GetData( &burt_status_data);
           // if there is a success for given state
