@@ -438,7 +438,7 @@ int proficio_main(int argc, char** argv,
   bool taskComplete = false;
   bool taskSuccess = false;
   bool hasError = false;
-  int state = START;
+  int state = RESET;
   
   std::deque<double> scores;
 	CMessage Consumer_M;
@@ -451,8 +451,8 @@ int proficio_main(int argc, char** argv,
   bool trialCompleted = true;
   
   // Todo: these shouldn't be modifiable easily.
-  double targetWidth = 5;
-  double trackLength = 10;
+  double targetWidth = 0.005;
+  double trackLength = 0.5234375;
   // double zDepth = 0
   double targetReached = false;
   
@@ -477,11 +477,12 @@ int proficio_main(int argc, char** argv,
   while (true) {  // Allow the user to stop and resume with pendant buttons
 		cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
 		// this code is to be sent to the python visualization
+    /*
 		MDF_RT_POSITION_FEEDBACK pos_data;
 		pos_data.distanceFromCenter = std::abs(cp[XorYorZ] - system_center[XorYorZ]) * 1240 / 0.2;
 		CMessage pos_M( MT_RT_POSITION_FEEDBACK);
 		pos_M.SetData( &pos_data, sizeof(pos_data));
-		mod.SendMessageDF( &pos_M);
+		//mod.SendMessageDF( &pos_M); 
 		
 		// send messages signifying how far it is along the track
 		// receive messages from consumer where the target is
@@ -492,7 +493,7 @@ int proficio_main(int argc, char** argv,
 		force_data.z = cforce[2];
 		CMessage force_M( MT_FORCE_FEEDBACK);
 		force_M.SetData( &force_data, sizeof(force_data));
-		mod.SendMessageDF( &force_M);
+		//mod.SendMessageDF( &force_M); */
     
     MDF_BURT_STATUS burt_status_data;
     
@@ -519,7 +520,7 @@ int proficio_main(int argc, char** argv,
     M.SetData( &burt_status_data, sizeof(burt_status_data) );
     mod.SendMessageDF( &M );
     
-    std::cout << "while..." << std::endl;
+    //std::cout << "while..." << std::endl;
     //-----------------------------------------------------------------
 		// ** POSITION JUDGE**
     switch(state)
@@ -528,13 +529,13 @@ int proficio_main(int argc, char** argv,
       case START: //NOT SET HERE
       {
         wam.moveTo(system_center);
-        std::cout << "Starting..." << std::endl;
+        //std::cout << "Starting..." << std::endl;
         state = FORCE_RAMP; // intentional fall-through
         timer = clock();
       }
       case FORCE_RAMP:
       { // get to correct force in X time
-        std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl; 
         if (rampTimeF < (clock() - timer))
         {
           //mtx.lock();
@@ -557,7 +558,7 @@ int proficio_main(int argc, char** argv,
       }
       case FORCE_HOLD:
       { // hold force for X time (?)
-        std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl; 
         //mtx.lock();
         state = TARGET_MOVE;
         //mtx.unlock();
@@ -603,7 +604,7 @@ int proficio_main(int argc, char** argv,
       }
       case TARGET_HOLD:
       {
-        std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl; 
         if (holdTimeT > (clock() - timer))
         {
           // if held long enough then success
@@ -643,15 +644,14 @@ int proficio_main(int argc, char** argv,
           std::cout << "New message" << std::endl; 
           MDF_TASK_STATE_CONFIG task_state_data;
           Consumer_M.GetData( &task_state_data);
-          distance = task_state_data.distance;
+          distance = task_state_data.distance * trackLength;
           state = task_state_data.state;
           angle = task_state_data.direction;
           force = task_state_data.force;
           
           // Set new trial parameters
           trialManager->setTarget(distance, targetWidth);
-          trialManager->
-          rotate(angle);
+          trialManager->rotate(angle);
          
           comboInd = task_state_data.target_combo_index;
          

@@ -42,26 +42,32 @@ else:
 MAX_WIDTH = 1280
 OFFSET=20
 
+# CALIBRATION
+SYSTEM_CENTER = (287.45, -77.25)
+FB_CENTER = (350, 400)
+SCALE = 10.0 #todo: import from config
+DIST = 240
+
 BEGINTRIAL_TS = 1
 FORCERAMP_TS = 2
 REWARD_TS = 5
 
 # Colors
 WHITE = (255, 255, 255, 255)
-GREEN = (0, 100, 0, 255)
-RED   = (255, 0, 0, 255)
+GREEN = (4, 121, 4, 255)
+RED   = (197, 58, 58, 255)
 BRGDY = (100, 0, 0, 255)
 MSTRD = (175, 175, 0, 255)
 GRY_D = (40, 40, 40, 255)
-GRY_L = (180, 180, 180, 255) 
+GRY_L = (190, 190, 190, 255) 
 BLACK = (0, 0, 0, 255)
-BLUE  = (0, 50, 150, 255)
+BLUE  = (68, 187, 187, 255)
 
 # Position origins
 FEEDBACK_ORIGIN = [(20, 405), (20, 615), (28, 615), (28, 405)]
-TARGET_ORIGIN = [(240, 680), (240, 720), (460, 720), (460, 680)]
+TARGET_ORIGIN = [(260, 680), (260, 720), (440, 720), (440, 680)]
 POSITION_ORIGIN = [(260, 60), (260, 740), (440, 740), (440, 60)]
-CURSOR_ORIGIN = [50, 400]
+CURSOR_ORIGIN = [350, 400]
 
 currentAngle = 0
 
@@ -102,16 +108,29 @@ class Display(ColorLayer):
         self.currentState = enums.STATES.RESET
         
         #positionOrigin = self.getPositionBarOrigin(self.width, self.height)
-        self.position_bar = Polygon(v=POSITION_ORIGIN, color=(0.05, 0.05, 0.05, 1), stroke=0)
+        self.position_bar = Polygon(v=POSITION_ORIGIN,
+                                    color=self.colorMod(GRY_D),
+                                    stroke=0)
+                                    
         #self.rotatePositionBar(currentAngle)
         #elf.resizePolygon(self.position_bar)
         
-        self.cursor = Circle(x=CURSOR_ORIGIN[0], y=CURSOR_ORIGIN[1], width=50, color=(0, 0.2, 1.0, 1), stroke=0)
+        self.cursor = Circle(x=CURSOR_ORIGIN[0], 
+                             y=CURSOR_ORIGIN[1], 
+                             width=50, 
+                             color=self.colorMod(BLUE), 
+                             stroke=0)
         
-        self.tgt_window   = Polygon(v=TARGET_ORIGIN, color=(0, 0.6, 0.2, 1), stroke=0)
+        self.tgt_window = Polygon(v=TARGET_ORIGIN, 
+                                  color=self.colorMod(GRY_D), 
+                                  stroke=0)
+        
         #self.resizePolygon(self.tgt_window)
         
-        self.pos_fdbk     = Polygon(v=FEEDBACK_ORIGIN, color=(0, 0.2, 1.0, 1), stroke=0)
+        self.pos_fdbk     = Polygon(v=FEEDBACK_ORIGIN, 
+                                    color=(0, 0.2, 1.0, 1),
+                                    stroke=0)
+                                    
         self.resizePolygon(self.pos_fdbk)
         
         self.pos_fdbk_txt = pyglet.text.Label('',
@@ -196,18 +215,14 @@ class Display(ColorLayer):
     # Rotate a point around specified origin
     def rotatePoint(self, oldPoint, angle, origin):
         ox, oy = origin
-        #print("origin: ", origin)
         px, py = oldPoint
-        #print "old point: ", oldPoint
-        #print "angle", angle
-        
         qx = ox + (math.cos(angle) * (px - ox)) - (math.sin(angle) * (py - oy))
         qy = oy + (math.sin(angle) * (px - ox)) + (math.cos(angle) * (py - oy))
-        #print "new point: ", qx, qy
         return qx, qy
     
     # Move the target origin, and change its sixe
-    def newTarget(self, width, xCenter):
+    def getNewTarget(self, width, newDistance):
+        xCenter = (DIST*newDistance) + FB_CENTER[0]
         global TARGET_ORIGIN
         left  = xCenter - width/2
         right = xCenter + width/2
@@ -268,6 +283,7 @@ class Display(ColorLayer):
     def moveCursor(self, circle, x, y):
         circle.x = x
         circle.y = y
+        print "moving to: ", x, " ,", y
 
     #Rotate a shape about origin
     def rotate(self, polygon, angle, origin):
@@ -284,11 +300,8 @@ class Display(ColorLayer):
         topR = self.rotatePoint(origin[3], angle, center)
         
         rotated = [topL, botL, botR, topR]
-        # print "rotating"
         polygon.v = rotated
         # self.resizePolygon(self.position_bar)
-        #if topL[0] > 0:
-          #print rotated
         return rotated
 
 
@@ -327,8 +340,6 @@ class Display(ColorLayer):
 
     def update(self, dt):
         global currentAngle
-        #print "updating...."
-        #bp()
         while True:
             rcv = self.mod.ReadMessage(self.msg, 0)
             #currentAngle = (currentAngle + 45) % 360
@@ -344,28 +355,39 @@ class Display(ColorLayer):
                 
                 # Get cursor position from BURT
                 elif msg_type == rc.MT_BURT_STATUS:
-                    bp()
+                    #bp()
                     mdf = rc.MDF_BURT_STATUS()
                     copy_from_msg(mdf, self.msg)
                     # x, y = mapBurt2Display(mdf.pos_x, mdf.pos_y, mdf.pos_z) #ALREADY CONERTED
-                    x = mdf.pos_x
-                    y = mdf.pos_y
-                    self.moveCursor(x, y)
+                    x = (mdf.pos_x / SCALE) - SYSTEM_CENTER[0] + FB_CENTER[0]
+                    y = (mdf.pos_y / SCALE) - SYSTEM_CENTER[1] + FB_CENTER[1]
+                    #bp()
+                    self.moveCursor(self.cursor, x, y)
                     
                     # change state to show success or failure
+                    if mdf.state == enums.STATES.START:
+                            self.tgt_window.color = self.colorMod(MSTRD)
                     if mdf.task_complete:
                         if mdf.task_success:
                             #self.setState(mdf, state)
+                            self.tgt_window.color = self.colorMod(GREEN)
                             pass #TODO
                         else:
                             #self.setState(mdf, state)
+                            self.tgt_window.color = self.colorMod(RED)
                             pass #TODO
+                    if mdf.state == enums.STATES.RESTART:
+                            self.tgt_window.color = self.colorMod(GRY_D)
+                            
                 
                 # Get state information from Exec
                 elif msg_type == rc.MT_TASK_STATE_CONFIG:
                     mdf = rc.MDF_INPUT_DOF_DATA()
                     copy_from_msg(mdf, self.msg)
                     #self.setState(mdf, mdf.state)
+                    currentAngle = (mdf.direction + 45) % 360
+                    self.rotatePositionBar(currentAngle)
+                    self.getNewTarget(mdf.width, mdf.distance)
                 
                 # ------------------------------------------------
                 

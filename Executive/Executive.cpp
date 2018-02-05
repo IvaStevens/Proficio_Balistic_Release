@@ -94,10 +94,10 @@ int main( int argc, char *argv[])
     int nextState = (currentState % (nStates)) + 1;
 
     //TODO Read in yaml file
-    vector<int> directions = {0, 1, 2};
+    vector<int> directions = {0, 2, 4, 6};
     vector<double> forces = {0.01, 0.02, 0.03, 0.04};
-    vector<int> widths = {1, 2, 3};
-    vector<double> distances = {0.10, 0.15, 0.20};
+    vector<int> widths = {3, 2, 1};
+    vector<double> distances = {0.10, 0.35, 0.80};
 
     // Initialize targetList
     vector<TargetNode> targetList = initTargetList(directions, forces, widths, distances);
@@ -142,7 +142,7 @@ int main( int argc, char *argv[])
         // BURT sent an msg about state termination.
         case MT_BURT_STATUS:
         {
-          std::cout << "burt message sent \n";
+          //std::cout << "burt message sent \n";
           MDF_BURT_STATUS burt_status_data;
           M.GetData( &burt_status_data);
           // if there is a success for given state
