@@ -43,7 +43,7 @@ MAX_WIDTH = 1280
 OFFSET=20
 
 # CALIBRATION
-SYSTEM_CENTER = (287.45, -77.25)
+SYSTEM_CENTER = (76.8, 288)
 FB_CENTER = (350, 400)
 SCALE = 10.0 #todo: import from config
 DIST = 240
@@ -66,10 +66,11 @@ BLUE  = (68, 187, 187, 255)
 # Position origins
 FEEDBACK_ORIGIN = [(20, 405), (20, 615), (28, 615), (28, 405)]
 TARGET_ORIGIN = [(260, 680), (260, 720), (440, 720), (440, 680)]
+
 POSITION_ORIGIN = [(260, 60), (260, 740), (440, 740), (440, 60)]
 CURSOR_ORIGIN = [350, 400]
 
-currentAngle = 0
+currentAngle = -90
 
 
 class Display(ColorLayer):
@@ -229,6 +230,7 @@ class Display(ColorLayer):
         _, top = TARGET_ORIGIN[0]
         _, bot = TARGET_ORIGIN[1]
         newTarget = [(left, top), (left, bot), (right, bot), (right, top)]
+        TARGET_ORIGIN = newTarget
         return newTarget
 
     # Set the task state
@@ -343,6 +345,8 @@ class Display(ColorLayer):
         while True:
             rcv = self.mod.ReadMessage(self.msg, 0)
             #currentAngle = (currentAngle + 45) % 360
+            self.rotate(self.position_bar, math.radians(currentAngle), POSITION_ORIGIN)
+            self.rotate(self.tgt_window, math.radians(currentAngle), TARGET_ORIGIN)
             #self.rotatePositionBar(currentAngle)
             if rcv == 1:
                 hdr = self.msg.GetHeader()
@@ -350,6 +354,7 @@ class Display(ColorLayer):
 
                 if msg_type == rc.MT_PING:
                     self.reset_score()
+                    break
 
                 # -------------- Actual messages -----------------
                 
@@ -359,7 +364,7 @@ class Display(ColorLayer):
                     mdf = rc.MDF_BURT_STATUS()
                     copy_from_msg(mdf, self.msg)
                     # x, y = mapBurt2Display(mdf.pos_x, mdf.pos_y, mdf.pos_z) #ALREADY CONERTED
-                    x = (mdf.pos_x / SCALE) - SYSTEM_CENTER[0] + FB_CENTER[0]
+                    x = (-mdf.pos_x / SCALE) - SYSTEM_CENTER[0] + FB_CENTER[0]
                     y = (mdf.pos_y / SCALE) - SYSTEM_CENTER[1] + FB_CENTER[1]
                     #bp()
                     self.moveCursor(self.cursor, x, y)
@@ -378,16 +383,17 @@ class Display(ColorLayer):
                             pass #TODO
                     if mdf.state == enums.STATES.RESTART:
                             self.tgt_window.color = self.colorMod(GRY_D)
+                    break
                             
                 
                 # Get state information from Exec
                 elif msg_type == rc.MT_TASK_STATE_CONFIG:
-                    mdf = rc.MDF_INPUT_DOF_DATA()
+                    #bp()
+                    mdf = rc.MDF_TASK_STATE_CONFIG()
                     copy_from_msg(mdf, self.msg)
                     #self.setState(mdf, mdf.state)
-                    currentAngle = (mdf.direction + 45) % 360
-                    self.rotatePositionBar(currentAngle)
-                    self.getNewTarget(mdf.width, mdf.distance)
+                    currentAngle = (mdf.direction - 2 ) * 45
+                    break
                 
                 # ------------------------------------------------
                 
@@ -407,7 +413,7 @@ class Display(ColorLayer):
                         self.pos_fdbk.v[1] = (x_pos, 615)
                         self.pos_fdbk.v[2] = (x_pos+8, 615)
                         self.pos_fdbk.v[3] = (x_pos+8, 405)
-                        
+                    break
 
                  # if msg_type == rc.MT_FORCE_SENSOR_DATA:
                  #     mdf = rc.MDF_FORCE_SENSOR_DATA()
@@ -431,6 +437,7 @@ class Display(ColorLayer):
                     self.pos_fdbk.v[3] = (x_pos+8, 405)
                     self.resizePolygon(self.pos_fdbk)
                     self.transformPolygon(self.pos_fdbk, self.transformationType)
+                    break
                     
                 elif msg_type == rc.MT_COMBO_WAIT:
                     mdf = rc.MDF_COMBO_WAIT()
@@ -444,11 +451,13 @@ class Display(ColorLayer):
 
                     self.screen_off()
                     self.schedule_interval(self.timer_count_down, 1)
+                    break
                 
                 elif msg_type == rc.MT_TRIAL_CONFIG:
                     self.unschedule(self.timer_count_down)
                     self.combo_wait_txt.text = ''
                     self.screen_on()
+                    break
                     
                 elif msg_type == rc.MT_END_TASK_STATE:
                     mdf = rc.MDF_END_TASK_STATE()
@@ -463,49 +472,9 @@ class Display(ColorLayer):
                     if (mdf.id in [2, 3, 4]) and (mdf.outcome == 0):
                         print "screen off"
                         self.screen_off()
-
-                #elif msg_type == rc.MT_TASK_STATE_CONFIG:
-                 #   mdf = rc.MDF_TASK_STATE_CONFIG()
-                 #   copy_from_msg(mdf, self.msg)
-
-                 #   if mdf.background_color == 'gray':
-                 #       self.color = (180, 180, 180)
-                 #   elif mdf.background_color == 'red':
-                 #       self.color = (150, 12, 12)
-                 #   elif mdf.background_color == 'green':
-                 #       self.color = (0, 150, 50)
-
-                 #   if mdf.fdbk_display_color == 'gray':
-                 #       self.tgt_window.color = (0.3, 0.3, 0.3, 1)
-                 #   elif mdf.fdbk_display_color == 'yellow':
-                 #       self.increment_score()
-                 #       self.tgt_window.color = (0.5, 0.5, 0.0, 1)
-                 #   elif mdf.fdbk_display_color == 'green':
-                 #       self.tgt_window.color = (0.0, 0.6, 0.2, 1)
-                 #   elif mdf.fdbk_display_color == 'red':
-                 #       self.tgt_window.color = (0.6, 0.05, 0.05, 1)
-                 #   
-                 #   if not math.isnan(mdf.direction) and mdf.direction in range(-1,3) and not mdf.direction == self.transformationType:
-                 #       self.position_bar.v = FEEDBACK_ORIGIN
-                 #       self.resizePolygon(self.position_bar)
-                 #       self.transformPolygon(self.position_bar, mdf.direction)
-                 #       self.transformPolygon(self.pos_fdbk, mdf.direction)
-                 #       self.transformationType = mdf.direction
-                 #   
-                 #   if not(math.isnan(mdf.target[0])) and not(math.isnan(mdf.target[1])):
-                 #       x_tgt_lo = mdf.target[0] + 20
-                 #       x_tgt_hi = mdf.target[1] + 20
-                 #       
-                 #       self.tgt_window.v[0] = (x_tgt_lo, 430)
-                 #       self.tgt_window.v[1] = (x_tgt_lo, 590)
-                 #       self.tgt_window.v[2] = (x_tgt_hi, 590)
-                 #       self.tgt_window.v[3] = (x_tgt_hi, 430)
-                 #       self.resizePolygon(self.tgt_window)
-                 #       self.transformPolygon(self.tgt_window, self.transformationType)
-            else:
-                self.rotate(self.position_bar, math.radians(currentAngle), POSITION_ORIGIN)
-                self.rotate(self.tgt_window, math.radians(currentAngle), TARGET_ORIGIN)
-                break
+                    break
+                
+            break
 
     # Convert point from BURT to appropriate displayable position
     def mapBurt2Display(self, x, y, z = 0):

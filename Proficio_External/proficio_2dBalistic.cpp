@@ -451,7 +451,7 @@ int proficio_main(int argc, char** argv,
   bool trialCompleted = true;
   
   // Todo: these shouldn't be modifiable easily.
-  double targetWidth = 0.005;
+  double targetWidth = 0.140625;
   double trackLength = 0.5234375;
   // double zDepth = 0
   double targetReached = false;
@@ -459,9 +459,9 @@ int proficio_main(int argc, char** argv,
   // declare other params
   double angle, distance, comboInd, force;
  
-  TargetZone * trialManager = new TargetZone(system_center[0], system_center[1],
+  TargetZone * trialManager = new TargetZone(system_center[1], system_center[0],
                                           system_center[2], targetWidth,
-                                          trackLength); 
+                                          trackLength*2);
   EnumParser<STATES> parser;
   int taskState = 0; // Experiment state
   int trialState = 0; // Burt trail state
@@ -506,13 +506,13 @@ int proficio_main(int argc, char** argv,
     burt_status_data.error = hasError;
     
     // Set Force Data
-    burt_status_data.force_x = cforce[0];
-    burt_status_data.force_y = cforce[1];
+    burt_status_data.force_x = cforce[1];
+    burt_status_data.force_y = cforce[0];
     burt_status_data.force_z = cforce[2];
     
     // Set Position Data  TODO: MOVE CONVERSION ELSEWHERE
-    burt_status_data.pos_x = cp[0]* 1280 / 0.2; // Assume this is accurate
-    burt_status_data.pos_y = cp[1]* 1280 / 0.2; // TODO: check that cp has the right value
+    burt_status_data.pos_x = cp[1]* 1280 / 0.2; // Assume this is accurate
+    burt_status_data.pos_y = cp[0]* 1280 / 0.2; // TODO: check that cp has the right value
     burt_status_data.pos_z = cp[2]* 1280 / 0.2; // and is set properly
     
     // Send Message
@@ -523,6 +523,18 @@ int proficio_main(int argc, char** argv,
     //std::cout << "while..." << std::endl;
     //-----------------------------------------------------------------
 		// ** POSITION JUDGE**
+    
+    taskComplete = true;
+    if ( trialManager->inZone(cp[1], cp[0]) )
+    {
+      taskSuccess = false;
+    }
+    else
+    {
+      taskSuccess = true;
+    }
+    
+    /*
     switch(state)
     {
       // Run the experiment
@@ -530,12 +542,12 @@ int proficio_main(int argc, char** argv,
       {
         wam.moveTo(system_center);
         //std::cout << "Starting..." << std::endl;
-        state = FORCE_RAMP; // intentional fall-through
+        state = TARGET_MOVE; // intentional fall-through
         timer = clock();
       }
       case FORCE_RAMP:
       { // get to correct force in X time
-        //std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl;
         if (rampTimeF < (clock() - timer))
         {
           //mtx.lock();
@@ -547,7 +559,7 @@ int proficio_main(int argc, char** argv,
           break;
         }
         // Check force vector
-        if (!trialManager->adequateForce(cforce[0], cforce[1], force, 0.1))
+        if (!trialManager->adequateForce(cforce[1], cforce[0], force, 0.1))
         {
           break;
         }
@@ -558,7 +570,7 @@ int proficio_main(int argc, char** argv,
       }
       case FORCE_HOLD:
       { // hold force for X time (?)
-        //std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl;
         //mtx.lock();
         state = TARGET_MOVE;
         //mtx.unlock();
@@ -567,7 +579,7 @@ int proficio_main(int argc, char** argv,
       }
       case TARGET_MOVE:
       { 
-        std::cout << "State: " << state << std::endl; 
+        std::cout << "State: " << state << std::endl;
         // Move to target    
         if (rampTimeT < (clock() - timer))
         {
@@ -579,9 +591,8 @@ int proficio_main(int argc, char** argv,
           //mtx.unlock();
           break;
         }
-        // If exist track, fail
-        /*
-        if (!trialManager->inZone(cp[0], cp[1])) // or time is up
+        // If exist track, fail      
+        if (!trialManager->inZone(cp[1], cp[0])) // or time is up
         {
           //mtx.lock();
           state = FAIL;
@@ -589,13 +600,13 @@ int proficio_main(int argc, char** argv,
           taskComplete = true;
           //mtx.unlock();
           break;
-        } */
-        else if (trialManager->inTarget(cp[0], cp[1]))
+        }
+        else if (trialManager->inTarget(cp[1], cp[0]))
         { // in target zone
           timer = clock();
           //mtx.lock();
           state = TARGET_HOLD; // intentional fall-through 
-          //mtx.unlock();   
+          //mtx.unlock();
         }
         else
         {
@@ -604,7 +615,7 @@ int proficio_main(int argc, char** argv,
       }
       case TARGET_HOLD:
       {
-        //std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl;
         if (holdTimeT > (clock() - timer))
         {
           // if held long enough then success
@@ -615,33 +626,31 @@ int proficio_main(int argc, char** argv,
           //mtx.unlock();
         }
         // if exits zone, then fail
-        /*
-        if (!trialManager->inTarget(cp[0], cp[1]));
+        if (!trialManager->inTarget(cp[1], cp[0]));
         {
           //mtx.lock();
           state = FAIL;
           taskSuccess = false;
           taskComplete = true;
           //mtx.unlock();
-        } */
+        }
         break;
       }
       // Reach target, send success message
       case SUCCESS:
-        std::cout << "State success: " << state << std::endl; 
+        std::cout << "State success: " << state << std::endl;
       // Did not reach target send fail
       case FAIL:
-        std::cout << "State fail: " << state << std::endl; 
+        std::cout << "State fail: " << state << std::endl;
       // reset parameters and prep for next round
       case RESET: //NOT SET HERE
       {
         taskComplete = false;
-        std::cout << "State reseting: " << state << std::endl; 
+        std::cout << "State reseting: " << state << std::endl;
         wam.moveTo(system_center);
         mod.ReadMessage( &Consumer_M);
         if (Consumer_M.msg_type == MT_TASK_STATE_CONFIG)
         {
-          std::cout << "New message" << std::endl; 
           MDF_TASK_STATE_CONFIG task_state_data;
           Consumer_M.GetData( &task_state_data);
           distance = task_state_data.distance * trackLength;
@@ -654,8 +663,12 @@ int proficio_main(int argc, char** argv,
           trialManager->rotate(angle);
          
           comboInd = task_state_data.target_combo_index;
+          
+          std::cout << "New message" << std::endl;
+          std::cout << "Distance: " << (distance*trackLength)*1280 / 0.2  << std::endl;
+          std::cout << "Angle: " << angle << std::endl;
          
-          // Other for later....
+          // TODO: Other for later....
           //rep_num
           //idle_timeout
           //timeout
@@ -666,23 +679,25 @@ int proficio_main(int argc, char** argv,
       // Error occurred stop everything until safe to restart
       case ERROR:
       {
-        std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl;
         // TODO
         wam.moveTo(system_center);
         break;
       }
       case REST: //NOT SET HERE
       {
-        std::cout << "State: " << state << std::endl; 
+        //std::cout << "State: " << state << std::endl;
         wam.moveTo(system_center);
         // lock in place
         break;
       }
       default:
       {
-       std::cout << "State: " << state << std::endl; 
+       //std::cout << "State: " << state << std::endl;
       }
     } // ** END POSITION JUDGE ** 
+    
+    */
     
 	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)
   {

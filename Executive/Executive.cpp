@@ -91,10 +91,10 @@ int main( int argc, char *argv[])
     bool rewardable = false;
     bool shouldReset = false;
     double tError = 0.03;
-    int nextState = (currentState % (nStates)) + 1;
+    int nextState = RESET;
 
     //TODO Read in yaml file
-    vector<int> directions = {0, 2, 4, 6};
+    vector<int> directions = {0, 0, 0, 0}; //2, 4, 6};
     vector<double> forces = {0.01, 0.02, 0.03, 0.04};
     vector<int> widths = {3, 2, 1};
     vector<double> distances = {0.10, 0.35, 0.80};
@@ -120,6 +120,8 @@ int main( int argc, char *argv[])
     CMessage task_state_config_M( MT_TASK_STATE_CONFIG);
     task_state_config_M.SetData( &trial_input_data, sizeof(trial_input_data));
     mod.SendMessageDF( &task_state_config_M);
+    std::cout << "Sending first message..." << std::endl;
+    
     
     // Run the experiment
     while(1)
