@@ -451,8 +451,8 @@ int proficio_main(int argc, char** argv,
   bool trialCompleted = true;
   
   // Todo: these shouldn't be modifiable easily.
-  double targetWidth = 0.140625;
-  double trackLength = 0.5234375;
+  double targetWidth = 0.28125;
+  double trackLength = 0.53125; //0.5234375; actual reachign distance
   // double zDepth = 0
   double targetReached = false;
   
