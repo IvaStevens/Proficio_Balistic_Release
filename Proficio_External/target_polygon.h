@@ -93,12 +93,12 @@ class TargetZone
       Point tr = _center + Point(-dx, dy, 0);
       
       // set base zone and target region
-      _zone = Rectangle(tl, bl, br, tl);
-      _target = Rectangle(tl, bl, br, tl);
+      _zone = Rectangle(tl, bl, br, tr);
+      _target = Rectangle(tl, bl, br, tr);
       
       // set accessible zone and target region
-      zoneR = Rectangle(tl, bl, br, tl);
-      targetR = Rectangle(tl, bl, br, tl);
+      zoneR = Rectangle(tl, bl, br, tr);
+      targetR = Rectangle(tl, bl, br, tr);
       
       // set acceptable depth. Probably not used...
       _zDepth = depth;
@@ -121,7 +121,7 @@ class TargetZone
       Point tr = targetCenter + Point(-dx, 0, 0);
       
       // set target region
-      _target = Rectangle(tl, bl, br, tl);
+      _target = Rectangle(tl, bl, br, tr);
       targetR = rotateRectangle(_target, _angle);
     }
      

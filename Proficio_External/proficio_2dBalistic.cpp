@@ -451,8 +451,8 @@ int proficio_main(int argc, char** argv,
   bool trialCompleted = true;
   
   // Todo: these shouldn't be modifiable easily.
-  double targetWidth = 0.005;
-  double trackLength = 0.5234375;
+  double targetWidth = 0.28125;
+  double trackLength = 0.53125; //0.5234375; actual reachign distance
   // double zDepth = 0
   double targetReached = false;
   
@@ -461,7 +461,7 @@ int proficio_main(int argc, char** argv,
  
   TargetZone * trialManager = new TargetZone(system_center[0], system_center[1],
                                           system_center[2], targetWidth,
-                                          trackLength); 
+                                          trackLength*2); 
   EnumParser<STATES> parser;
   int taskState = 0; // Experiment state
   int trialState = 0; // Burt trail state
