@@ -65,6 +65,7 @@ class TargetZone
     Point _center; // System center
     double _zDepth;
     double _angle;
+    double _width;
     
   public:
     Rectangle zoneR;
@@ -102,6 +103,8 @@ class TargetZone
       
       // set acceptable depth. Probably not used...
       _zDepth = depth;
+      
+      _width = width;
     }
   
     /**
@@ -111,14 +114,15 @@ class TargetZone
     {
       // delta for center
       double dx = distance;
-      Point targetCenter = _center + Point(dx, 0, 0);
+      Point targetCenter = _center + Point(-dx, 0, 0); //Negative dx b/c reasons.
       
       // delta for width
       dx = targetWidth/2;
-      Point tl = targetCenter + Point(dx, 0, 0);
-      Point bl = targetCenter + Point(dx, 0, 0);
-      Point br = targetCenter + Point(-dx, 0, 0);
-      Point tr = targetCenter + Point(-dx, 0, 0);
+      double dy = _width/2;
+      Point tl = targetCenter + Point( dx, dy, 0);
+      Point bl = targetCenter + Point( dx,-dy, 0);
+      Point br = targetCenter + Point(-dx,-dy, 0);
+      Point tr = targetCenter + Point(-dx, dy, 0);
       
       // set target region
       _target = Rectangle(tl, bl, br, tr);
