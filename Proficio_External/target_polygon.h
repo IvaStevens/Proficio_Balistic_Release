@@ -226,16 +226,17 @@ class TargetZone
       // loop through all edges of the polygon
       for (int i=0; i<n; i++)
       {    // edge from V[i]  to V[i+1]
-        if (((V[i].y <= P.y) && (V[i+1].y > P.y))     // an upward crossing
-          || ((V[i].y > P.y) && (V[i+1].y <=  P.y))) 
+        if (((V[i].y <= P.y) && (V[(i+1) % n].y > P.y))     // an upward crossing
+          || ((V[i].y > P.y) && (V[(i+1) % n].y <=  P.y))) 
         { // a downward crossing
           // compute  the actual edge-ray intersect x-coordinate
-          float vt = (float)(P.y  - V[i].y) / (V[i+1].y - V[i].y);
-          if (P.x <  V[i].x + vt * (V[i+1].x - V[i].x)) // P.x < intersect
+          float vt = (float)(P.y  - V[i].y) / (V[(i+1) % n].y - V[i].y);
+          if (P.x <  V[i].x + vt * (V[(i+1) % n].x - V[i].x)) // P.x < intersect
             ++cn;   // a valid crossing of y=P.y right of P.x
         }
       }
       return (cn&1);    // 0 if even (out), and 1 if  odd (in)
+      //return true;
     }
     
     /**

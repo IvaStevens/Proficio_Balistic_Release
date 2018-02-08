@@ -123,7 +123,7 @@ class Display(ColorLayer):
                              stroke=0)
         
         self.tgt_window = Polygon(v=TARGET_ORIGIN, 
-                                  color=self.colorMod(GRY_D), 
+                                  color=self.colorMod(RED), 
                                   stroke=0)
         
         #self.resizePolygon(self.tgt_window)
@@ -223,13 +223,14 @@ class Display(ColorLayer):
     
     # Move the target origin, and change its sixe
     def getNewTarget(self, width, newDistance):
-        xCenter = (DIST*newDistance) + FB_CENTER[0]
+        yCenter = (DIST*newDistance) + FB_CENTER[1]
         global TARGET_ORIGIN
-        left  = xCenter - width/2
-        right = xCenter + width/2
-        _, top = TARGET_ORIGIN[0]
-        _, bot = TARGET_ORIGIN[1]
+        top  = yCenter - width/2
+        bot = yCenter + width/2
+        left, _ = TARGET_ORIGIN[0]
+        right, _ = TARGET_ORIGIN[2]
         newTarget = [(left, top), (left, bot), (right, bot), (right, top)]
+        #bp()
         TARGET_ORIGIN = newTarget
         return newTarget
 
@@ -393,6 +394,9 @@ class Display(ColorLayer):
                     copy_from_msg(mdf, self.msg)
                     #self.setState(mdf, mdf.state)
                     currentAngle = (mdf.direction - 2 ) * 45
+                    self.getNewTarget(DIST/mdf.target_width, mdf.distance)
+                    self.rotate(self.position_bar, math.radians(currentAngle), POSITION_ORIGIN)
+                    self.rotate(self.tgt_window, math.radians(currentAngle), TARGET_ORIGIN)
                     break
                 
                 # ------------------------------------------------

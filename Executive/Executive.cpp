@@ -96,8 +96,8 @@ int main( int argc, char *argv[])
     //TODO Read in yaml file
     vector<int> directions = {0, 0, 0, 0}; //2, 4, 6};
     vector<double> forces = {0.01, 0.02, 0.03, 0.04};
-    vector<int> widths = {3, 2, 1};
-    vector<double> distances = {0.10, 0.35, 0.80};
+    vector<int> widths = {3, 5, 10};
+    vector<double> distances = {0.4, 0.6, 0.8};
 
     // Initialize targetList
     vector<TargetNode> targetList = initTargetList(directions, forces, widths, distances);
@@ -155,7 +155,7 @@ int main( int argc, char *argv[])
               shouldReset = true;
               if (!userDefState)
               { // progress next state as usual if not set else where
-                nextState = (currentState % (nStates)) + 1;
+                nextState = RESST;//(currentState % (nStates)) + 1;
               }
             // Subject error occurred, start next trial, no reward
             } 

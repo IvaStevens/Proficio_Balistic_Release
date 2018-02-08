@@ -458,6 +458,7 @@ int proficio_main(int argc, char** argv,
   
   // declare other params
   double angle, distance, comboInd, force;
+  int width;
  
   TargetZone * trialManager = new TargetZone(system_center[1], system_center[0],
                                           system_center[2], targetWidth,
@@ -524,17 +525,19 @@ int proficio_main(int argc, char** argv,
     //-----------------------------------------------------------------
 		// ** POSITION JUDGE**
     
+    /*
     taskComplete = true;
     if ( trialManager->inZone(cp[1], cp[0]) )
     {
-      taskSuccess = false;
+      taskSuccess = true;
     }
     else
     {
-      taskSuccess = true;
+      taskSuccess = false;
+      std::cout << "Point: " << cp[1] << ", " << cp[0] << std::endl;
     }
+    */
     
-    /*
     switch(state)
     {
       // Run the experiment
@@ -657,9 +660,10 @@ int proficio_main(int argc, char** argv,
           state = task_state_data.state;
           angle = task_state_data.direction;
           force = task_state_data.force;
+          width = task_state_data.target_width * trackLength;
           
           // Set new trial parameters
-          trialManager->setTarget(distance, targetWidth);
+          trialManager->setTarget(distance, width);
           trialManager->rotate(angle);
          
           comboInd = task_state_data.target_combo_index;
@@ -697,7 +701,7 @@ int proficio_main(int argc, char** argv,
       }
     } // ** END POSITION JUDGE ** 
     
-    */
+    
     
 	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)
   {
