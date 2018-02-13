@@ -46,7 +46,7 @@ OFFSET=20
 SYSTEM_CENTER = (76.8, 288)
 FB_CENTER = (350, 400)
 SCALE = 10.0 #todo: import from config
-DIST = 240
+DIST = 340
 
 BEGINTRIAL_TS = 1
 FORCERAMP_TS = 2
@@ -123,7 +123,7 @@ class Display(ColorLayer):
                              stroke=0)
         
         self.tgt_window = Polygon(v=TARGET_ORIGIN, 
-                                  color=self.colorMod(RED), 
+                                  color=self.colorMod(GRY_D), 
                                   stroke=0)
         
         #self.resizePolygon(self.tgt_window)
@@ -371,8 +371,7 @@ class Display(ColorLayer):
                     self.moveCursor(self.cursor, x, y)
                     
                     # change state to show success or failure
-                    if mdf.state == enums.STATES.START:
-                            self.tgt_window.color = self.colorMod(MSTRD)
+                    self.tgt_window.color = self.colorMod(MSTRD)
                     if mdf.task_complete:
                         if mdf.task_success:
                             #self.setState(mdf, state)

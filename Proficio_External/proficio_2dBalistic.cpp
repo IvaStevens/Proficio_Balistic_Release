@@ -394,6 +394,39 @@ unsigned long long getTimestamp()
   return milliseconds_since_epoch;
 }
 
+/**
+ * moveInSteps
+ * 
+ * Move the wam to the center slowly while holding start button
+ */
+template <size_t DOF>
+void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center, 
+                 cp_type point, Dragonfly_Module mod, TargetZone trialManager)
+{
+  int nSteps = 10;
+  double dx = (system_center[0] - point[0]) / nSteps;
+  double dy = (system_center[1] - point[1]) / nSteps;
+  double dz = (system_center[2] - point[2]) / nSteps;
+  
+  cp_type cp;
+  bool toggleMove = false;
+  
+  while (!trialManager->isHome(cp[1], cp[0], cp[2]))
+  {
+    cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
+    
+    // Listen for start/stop moving message
+    mod.ReadMessage( &Consumer_M);
+    if (Consumer_M.msg_type == MT_MOVE_HOME)
+    {
+      MDF_MOVE_HOME moving;
+      Consumer_M.GetData( &moving);
+      if 
+    }
+    
+  }
+}
+
 
 /**
  * proficio_main
@@ -452,24 +485,29 @@ int proficio_main(int argc, char** argv,
   
   // Todo: these shouldn't be modifiable easily.
   double targetWidth = 0.28125;
-  double trackLength = 0.53125; //0.5234375; actual reachign distance
+  double trackLength = 0.53125; //0.5234375; actual reaching distance
   // double zDepth = 0
   double targetReached = false;
   
   // declare other params
-  double angle, distance, comboInd, force;
-  int width;
+  double angle, distance, comboInd, force, width;
  
   TargetZone * trialManager = new TargetZone(system_center[1], system_center[0],
                                           system_center[2], targetWidth,
                                           trackLength*2);
+  // TODO: remove                                        
+  // trialManager->setTarget(0.4*trackLength, trackLength/3);
+  
   EnumParser<STATES> parser;
   int taskState = 0; // Experiment state
   int trialState = 0; // Burt trail state
   
   // TODO: timers should be passed from executive
-  int rampTimeF, holdTimeF, rampTimeT, holdTimeT;
-  rampTimeF = holdTimeF = rampTimeT = holdTimeT = 50*CLOCKS_PER_SEC;
+  double rampTimeF, holdTimeF, rampTimeT, holdTimeT;
+  rampTimeF = 5;
+  holdTimeF = 5;
+  rampTimeT = 5;
+  holdTimeT = 2;
   
   // Timer
   clock_t timer;
@@ -516,18 +554,19 @@ int proficio_main(int argc, char** argv,
     burt_status_data.pos_y = cp[0]* 1280 / 0.2; // TODO: check that cp has the right value
     burt_status_data.pos_z = cp[2]* 1280 / 0.2; // and is set properly
     
+    
     // Send Message
     CMessage M( MT_BURT_STATUS );
     M.SetData( &burt_status_data, sizeof(burt_status_data) );
     mod.SendMessageDF( &M );
     
-    //std::cout << "while..." << std::endl;
     //-----------------------------------------------------------------
-		// ** POSITION JUDGE**
+		// ** POSITION JUDGE**    
+    
+    
     
     /*
-    taskComplete = true;
-    if ( trialManager->inZone(cp[1], cp[0]) )
+    if ( trialManager->inTarget(cp[1], cp[0]) )
     {
       taskSuccess = true;
     }
@@ -546,18 +585,21 @@ int proficio_main(int argc, char** argv,
         wam.moveTo(system_center);
         //std::cout << "Starting..." << std::endl;
         state = TARGET_MOVE; // intentional fall-through
+        std::cout << "state: target move " << state << std::endl;
         timer = clock();
+        break;
       }
       case FORCE_RAMP:
       { // get to correct force in X time
         //std::cout << "State: " << state << std::endl;
-        if (rampTimeF < (clock() - timer))
+        if (rampTimeF < ((clock() - timer) / CLOCKS_PER_SEC) )
         {
           //mtx.lock();
           std::cout << "OUT OF TIME A" << state << std::endl;
           state = FAIL;
+          std::cout << "state: fail 1." << state << std::endl;
           taskSuccess = false;
-          taskComplete = true;
+          //taskComplete = true;
           //mtx.unlock();
           break;
         }
@@ -567,30 +609,22 @@ int proficio_main(int argc, char** argv,
           break;
         }
         //mtx.lock();
-        state = FORCE_HOLD;
+        state = TARGET_MOVE;
+        std::cout << "state: target move " << state << std::endl;
         //mtx.unlock();
         timer = clock(); // reset timer and intentionally fall through
       }
-      case FORCE_HOLD:
-      { // hold force for X time (?)
-        //std::cout << "State: " << state << std::endl;
-        //mtx.lock();
-        state = TARGET_MOVE;
-        //mtx.unlock();
-        timer = clock();
-        //break; // TODO: intentional fall-through
-      }
       case TARGET_MOVE:
       { 
-        std::cout << "State: " << state << std::endl;
         // Move to target    
-        if (rampTimeT < (clock() - timer))
+        if (rampTimeT < ((clock() - timer) / (double) CLOCKS_PER_SEC) )
         {
           //mtx.lock();
           std::cout << "OUT OF TIME B" << state << std::endl;
           state = FAIL;
+          std::cout << "state: fail 2." << state << std::endl;
           taskSuccess = false;
-          taskComplete = true;
+          //taskComplete = true;
           //mtx.unlock();
           break;
         }
@@ -599,16 +633,19 @@ int proficio_main(int argc, char** argv,
         {
           //mtx.lock();
           state = FAIL;
+          std::cout << "state: fail 3." << state << std::endl;
           taskSuccess = false;
-          taskComplete = true;
+          //taskComplete = true;
           //mtx.unlock();
           break;
         }
-        else if (trialManager->inTarget(cp[1], cp[0]))
+        
+        if (trialManager->inTarget(cp[1], cp[0]))
         { // in target zone
           timer = clock();
           //mtx.lock();
-          state = TARGET_HOLD; // intentional fall-through 
+          state = TARGET_HOLD; // intentional fall-through
+          std::cout << "state: target hold " << state << std::endl;
           //mtx.unlock();
         }
         else
@@ -619,13 +656,14 @@ int proficio_main(int argc, char** argv,
       case TARGET_HOLD:
       {
         //std::cout << "State: " << state << std::endl;
-        if (holdTimeT > (clock() - timer))
+        if (holdTimeT < ((clock() - timer) / CLOCKS_PER_SEC) )
         {
           // if held long enough then success
           //mtx.lock();
           state = SUCCESS;
+          std::cout << "state: success " << state << std::endl;
           taskSuccess = true;
-          taskComplete = true;
+          //taskComplete = true;
           //mtx.unlock();
         }
         // if exits zone, then fail
@@ -633,8 +671,9 @@ int proficio_main(int argc, char** argv,
         {
           //mtx.lock();
           state = FAIL;
+          std::cout << "state: fail 4." << state << std::endl;
           taskSuccess = false;
-          taskComplete = true;
+          //taskComplete = true;
           //mtx.unlock();
         }
         break;
@@ -644,41 +683,73 @@ int proficio_main(int argc, char** argv,
         std::cout << "State success: " << state << std::endl;
       // Did not reach target send fail
       case FAIL:
-        std::cout << "State fail: " << state << std::endl;
+        std::cout << "State: fail 5." << state << std::endl;
       // reset parameters and prep for next round
       case RESET: //NOT SET HERE
       {
-        taskComplete = false;
         std::cout << "State reseting: " << state << std::endl;
         wam.moveTo(system_center);
-        mod.ReadMessage( &Consumer_M);
-        if (Consumer_M.msg_type == MT_TASK_STATE_CONFIG)
+        taskComplete = true;
+        //------------- Ping for these stats-----------------------------    
+        // Set Task state
+        burt_status_data.task_complete = true;
+        burt_status_data.task_success = taskSuccess;
+        burt_status_data.timestamp = getTimestamp();
+        burt_status_data.state = state;
+        burt_status_data.error = hasError;
+        
+        // Set Force Data
+        burt_status_data.force_x = cforce[1];
+        burt_status_data.force_y = cforce[0];
+        burt_status_data.force_z = cforce[2];
+        
+        // Set Position Data  TODO: MOVE CONVERSION ELSEWHERE
+        burt_status_data.pos_x = cp[1]* 1280 / 0.2; // Assume this is accurate
+        burt_status_data.pos_y = cp[0]* 1280 / 0.2; // TODO: check that cp has the right value
+        burt_status_data.pos_z = cp[2]* 1280 / 0.2; // and is set properly        
+        
+        // Send Message
+        CMessage M( MT_BURT_STATUS );
+        M.SetData( &burt_status_data, sizeof(burt_status_data) );
+        mod.SendMessageDF( &M );
+        
+        //-----------------------------------------------------------------
+        while (true) // Ensure you pause here to listen for next message
         {
-          MDF_TASK_STATE_CONFIG task_state_data;
-          Consumer_M.GetData( &task_state_data);
-          distance = task_state_data.distance * trackLength;
-          state = task_state_data.state;
-          angle = task_state_data.direction;
-          force = task_state_data.force;
-          width = task_state_data.target_width * trackLength;
-          
-          // Set new trial parameters
-          trialManager->setTarget(distance, width);
-          trialManager->rotate(angle);
-         
-          comboInd = task_state_data.target_combo_index;
-          
-          std::cout << "New message" << std::endl;
-          std::cout << "Distance: " << (distance*trackLength)*1280 / 0.2  << std::endl;
-          std::cout << "Angle: " << angle << std::endl;
-         
-          // TODO: Other for later....
-          //rep_num
-          //idle_timeout
-          //timeout
-          //ts_time
+          mod.ReadMessage( &Consumer_M);
+          if (Consumer_M.msg_type == MT_TASK_STATE_CONFIG)
+          {
+            MDF_TASK_STATE_CONFIG task_state_data;
+            Consumer_M.GetData( &task_state_data);
+            distance = task_state_data.distance * trackLength;
+            state = task_state_data.state;
+            std::cout << "state: updating " << state << std::endl;
+            angle = task_state_data.direction;
+            force = task_state_data.force;
+            width = trackLength / (double)task_state_data.target_width;
+            
+            // Set new trial parameters
+            // trialManager->rotate(angle);
+            trialManager->setTarget(distance, width);
+           
+            comboInd = task_state_data.target_combo_index;
+            
+            std::cout << "New message" << std::endl;
+            std::cout << "Distance: " << distance << std::endl;
+            std::cout << "Angle: " << angle << std::endl;
+            std::cout << "Width: " << width << " : " << task_state_data.target_width << " : " << trackLength << std::endl;
+           
+            // TODO: Other for later....
+            //rep_num
+            //idle_timeout
+            //timeout
+            //ts_time
+            
+            taskComplete = false;
+            break; // Break out of inner while loop
+          }
         }
-        break;
+        break; // Break out of RESET case
       }
       // Error occurred stop everything until safe to restart
       case ERROR:
@@ -700,7 +771,7 @@ int proficio_main(int argc, char** argv,
        //std::cout << "State: " << state << std::endl;
       }
     } // ** END POSITION JUDGE ** 
-    
+
     
     
 	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)

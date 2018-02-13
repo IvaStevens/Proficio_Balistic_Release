@@ -155,7 +155,7 @@ int main( int argc, char *argv[])
               shouldReset = true;
               if (!userDefState)
               { // progress next state as usual if not set else where
-                nextState = RESST;//(currentState % (nStates)) + 1;
+                nextState = RESET;//(currentState % (nStates)) + 1;
               }
             // Subject error occurred, start next trial, no reward
             } 
@@ -163,7 +163,6 @@ int main( int argc, char *argv[])
             {
               rewardable = false;
               shouldReset = true;
-              break;
             }
             // pull up next TARGET parameters
             if ( nextTarget == currentTarget)
@@ -174,7 +173,7 @@ int main( int argc, char *argv[])
             }
 
             // determine next state      
-            if ( nextState ==  RESET || shouldReset)
+            if ( true )//nextState ==  RESET || shouldReset)
             { // Determine next target (send out with state)
 
               // Send out RESET messages and next target parameters
@@ -186,12 +185,8 @@ int main( int argc, char *argv[])
               trial_input_data.target_width = currentTarget.width;
               
               //trial_input_data.targetError = tError;
-              trial_input_data.state = nextState;
+              //trial_input_data.state = nextState;
               
-              // Send message
-              task_state_config_M.SetData( &trial_input_data, sizeof(trial_input_data));
-              mod.SendMessageDF( &task_state_config_M);
-
               // Print target definition
               cout << "Sending out next trial data..." << endl << "required force: " 
                 << trial_input_data.force  << endl << "Target distance: " 
@@ -211,6 +206,7 @@ int main( int argc, char *argv[])
               
               // TODO: THIS SHOULD BE REMOVED LATER
               trial_input_data.state =  START;
+              //Send message
               task_state_config_M.SetData( &trial_input_data, sizeof(trial_input_data));
               mod.SendMessageDF( &task_state_config_M); 
               
@@ -225,7 +221,7 @@ int main( int argc, char *argv[])
           }
           break;
         }
-          
+        
         // Default because we are running into issues
         default:
         {
