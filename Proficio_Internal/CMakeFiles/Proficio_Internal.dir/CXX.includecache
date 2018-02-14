@@ -6,27 +6,9 @@
 
 #IncludeRegexTransform: 
 
-/home/robot/src/Dragonfly_Message_defs/Dragonfly_config.h
-common_defs.h
-/home/robot/src/Dragonfly_Message_defs/common_defs.h
-rgm_config.h
-/home/robot/src/Dragonfly_Message_defs/rgm_config.h
-
-/home/robot/src/Dragonfly_Message_defs/common_defs.h
-
-/home/robot/src/Dragonfly_Message_defs/rgm_config.h
-common_defs.h
-/home/robot/src/Dragonfly_Message_defs/common_defs.h
-spike_types.h
-/home/robot/src/Dragonfly_Message_defs/spike_types.h
-
-/home/robot/src/Dragonfly_Message_defs/spike_types.h
-common_defs.h
-/home/robot/src/Dragonfly_Message_defs/common_defs.h
-
-/home/robot/src/Proficio_Internal/proficio_internal_2dBalistic.cpp
+/home/robot/Proficio_Balistic_Release/Proficio_Internal/proficio_internal_2dBalistic.cpp
 proficio_internal_2dBalistic.h
-/home/robot/src/Proficio_Internal/proficio_internal_2dBalistic.h
+/home/robot/Proficio_Balistic_Release/Proficio_Internal/proficio_internal_2dBalistic.h
 /home/robot/src/Proficio_Systems/magnitude.h
 -
 /home/robot/src/Proficio_Systems/normalize.h
@@ -84,8 +66,10 @@ proficio/systems/utilities.h
 proficio/standard_proficio_main.h
 -
 
-/home/robot/src/Proficio_Internal/proficio_internal_2dBalistic.h
+/home/robot/Proficio_Balistic_Release/Proficio_Internal/proficio_internal_2dBalistic.h
 stdexcept
+-
+errno.h
 -
 syslog.h
 -
@@ -109,6 +93,24 @@ barrett/units.h
 -
 proficio/systems/utilities.h
 -
+
+/home/robot/src/Dragonfly_Message_defs/Dragonfly_config.h
+common_defs.h
+/home/robot/src/Dragonfly_Message_defs/common_defs.h
+rgm_config.h
+/home/robot/src/Dragonfly_Message_defs/rgm_config.h
+
+/home/robot/src/Dragonfly_Message_defs/common_defs.h
+
+/home/robot/src/Dragonfly_Message_defs/rgm_config.h
+common_defs.h
+/home/robot/src/Dragonfly_Message_defs/common_defs.h
+spike_types.h
+/home/robot/src/Dragonfly_Message_defs/spike_types.h
+
+/home/robot/src/Dragonfly_Message_defs/spike_types.h
+common_defs.h
+/home/robot/src/Dragonfly_Message_defs/common_defs.h
 
 /home/robot/src/Proficio_Systems/magnitude.h
 cmath

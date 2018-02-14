@@ -101,8 +101,7 @@ namespace barrett {
       /** 
        * BalisticForce
        */
-      BalisticForce(const cp_type& center, 
-      
+      BalisticForce(const cp_type& center,
           const std::string& sysName = "BalisticForce") :
         HapticObject(sysName),
         c(center),
@@ -116,13 +115,44 @@ namespace barrett {
       /** 
        * operate
        */
-      virtual void operate() {
+      virtual void operate() 
+      {
+        error = c - input.getValue();
+        error[2] = 0; // No force in Z direction
+        double mag = error.norm();
+        if (!thresholdMet)
+        {
+          // If you haven't met the force threshold
+          if (mag < forceThreshold)
+          {
+            depth = mag;
+          }          
+          // Else you've met the force threshold
+          else 
+          {
+            thresholdMet = true;
+            depth = 0.0;
+            error.setZero();
+            std::cout << "threshold met, " << mag << std::endl;
+          }
+        } 
+        else 
+        {
+          depth = 0.0;
+          error.setZero();
+        }
+        
+        depthOutputValue->setData(&depth);
+        directionOutputValue->setData(&error);
+        
+        /*
         pos = input.getValue();
         for (int i=0;i<3;i++){
           dir[i] = 0.0;
         }
         if (!thresholdMet){
           cforce = c - pos;
+          // check the magnitude of exerted force
           if ((barrett::math::sign(forceThreshold)==1 && cforce[XorYorZ] >= forceThreshold) ||
             (barrett::math::sign(forceThreshold)==-1 && cforce[XorYorZ] <= forceThreshold))
           {
@@ -146,10 +176,11 @@ namespace barrett {
         message.setValue(msg_tmp);
         
         depthOutputValue->setData(&depth);
-        directionOutputValue->setData(&dir);
+        directionOutputValue->setData(&dir); //balistic */
       }
 
       cp_type c;
+      cf_type error;
 
       // state & temporaries
 
@@ -177,8 +208,7 @@ namespace barrett {
       /** 
        * HapticLine
        */
-      HapticLine(const cp_type& center, 
-          const std::string& sysName = "HapticLine") :
+      HapticLine(const cp_type& center, const std::string& sysName = "HapticLine") :
         HapticObject(sysName),
         c(center),
         depth(0.0), dir(0.0)
@@ -192,16 +222,29 @@ namespace barrett {
        * operate
        */
       virtual void operate() {
+        //p = input.getValue();
         inputForce = c - input.getValue();
-        inputForce[XorYorZ] = 0;
+        inputForce[0] = 0; // No force in Y direction
+        inputForce[1] = 0; // No force in X direction
+        //inputForce.setZero();
+
+        /* -------- added ---------------
+        if (0.2 + c[XorYorZ] < pos[XorYorZ]){
+            inputForce[XorYorZ] = 0.2 + c[XorYorZ] - p[XorYorZ];
+        }
+        if(-0.2 + c[XorYorZ] > pos[XorYorZ]){
+            inputForce[XorYorZ] = -0.2 + c[XorYorZ] - p[XorYorZ];
+        }
+        // ------------------------------- */
         
         depth = inputForce.norm();
         dir = inputForce;
         depthOutputValue->setData(&depth);
-        directionOutputValue->setData(&dir);
+        directionOutputValue->setData(&dir); //haptic
       }
 
       cp_type c;
+      //cp_type p;
 
       // state & temporaries
       cf_type inputForce;
@@ -333,9 +376,7 @@ void instantiate_proficio( barrett::ProductManager& product_manager,  // NOLINT
   } else if (side == RIGHT) {
     mod_axes.yOffset(-0.27);
   }
-  mod_axes.zOffset(-0.2);
-  
-  
+  mod_axes.zOffset(-0.2);  
 
   // line up forces so that they correlate correctly with python visualization
   barrett::systems::modXYZ<cf_type> mod_force;
@@ -398,7 +439,7 @@ unsigned long long getTimestamp()
  * moveInSteps
  * 
  * Move the wam to the center slowly while holding start button
- */
+ *
 template <size_t DOF>
 void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center, 
                  cp_type point, Dragonfly_Module mod, TargetZone trialManager)
@@ -421,12 +462,23 @@ void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center,
     {
       MDF_MOVE_HOME moving;
       Consumer_M.GetData( &moving);
-      if 
+      // wait to recieve start message
+      if (moving.shouldMove)
+      {
+        toggleMove = true;
+      } 
+      else 
+      {
+        toggleMove = false;
+      }
     }
-    
+    if (toggleMove)
+    {
+      //moveOneStep();
+    }    
   }
 }
-
+*/
 
 /**
  * proficio_main
@@ -437,8 +489,8 @@ template <size_t DOF>
 int proficio_main(int argc, char** argv,
                   barrett::ProductManager& product_manager,  // NOLINT
                   barrett::systems::Wam<DOF>& wam,           // NOLINT
-                  const Config& side) {
-  
+                  const Config& side) {  
+  BARRETT_UNITS_TEMPLATE_TYPEDEFS(DOF);
   // Initializing Dragonfly
   Dragonfly_Module mod( MID_CUBE_SPHERE, 0);
   try
@@ -456,7 +508,133 @@ int proficio_main(int argc, char** argv,
   
   // Instantiate Proficio
   const cp_type system_center(0.450, -0.120, 0.250);
-  instantiate_proficio(product_manager, wam, system_center, side);
+  //instantiate_proficio(product_manager, wam, system_center, side);
+
+  // =============================================================================
+  wam.gravityCompensate();
+  std::srand(time(NULL)); //initialize the random seed
+  barrett::SafetyModule* safety_module = product_manager.getSafetyModule();
+  barrett::SafetyModule::PendantState ps;
+  safety_module->getPendantState(&ps);
+  
+  std::string filename = "calibration_data/wam3/";
+  if (side == LEFT) {
+    filename = filename + "LeftConfig.txt";
+  } else if (side == RIGHT) {
+    filename = filename + "RightConfig.txt";
+  }  
+
+  // Catch kill signals if possible for a graceful exit.
+  signal(SIGINT, cube_sphere::exit_program_callback);
+  signal(SIGTERM, cube_sphere::exit_program_callback);
+  signal(SIGKILL, cube_sphere::exit_program_callback);
+
+  proficio::systems::UserGravityCompensation<DOF> gravity_comp(
+      barrett::EtcPathRelative(filename).c_str());
+  gravity_comp.setGainZero();
+
+  // Instantiate Systems
+  NetworkHaptics<DOF> network_haptics(product_manager.getExecutionManager(),
+                                      remoteHost, &gravity_comp);
+  
+  const cp_type ball_center(0.4, -0.15, 0.05);
+  wam.moveTo(system_center);
+  printf("Done Moving Arm! \n");
+  const cp_type box_center(0.35, 0.2, 0.0);
+  const barrett::math::Vector<3>::type box_size(0.2, 0.2, 0.2);
+
+  barrett::systems::BalisticForce ball(ball_center);
+  barrett::systems::HapticLine line(ball_center);
+  
+  barrett::systems::Summer<cf_type> direction_sum;
+  barrett::systems::Summer<double> depth_sum;
+  barrett::systems::PIDController<double, double> pid_controller;
+  barrett::systems::Constant<double> zero(0.0);
+  barrett::systems::TupleGrouper<cf_type, double> tuple_grouper;
+  
+  barrett::systems::Callback<boost::tuple<cf_type, double>, cf_type> mult(  // NOLINT
+      scale);
+      
+  barrett::systems::ToolForceToJointTorques<DOF> tf2jt;
+  barrett::systems::Summer<jt_type, 3> joint_torque_sum("+++");
+  // EDIT FOR VIBRATIONS
+  jt_type jtLimits(45.0);
+  jtLimits[2] =25.0;
+  jtLimits[0] = 55.0;
+  proficio::systems::JointTorqueSaturation<DOF> joint_torque_saturation(
+      jtLimits);
+  // EDIT FOR VIBRATIONS
+  v_type dampingConstants(20.0);
+  dampingConstants[2] = 10.0;
+  dampingConstants[0] = 50.0;
+  jv_type velocity_limits(1.7);
+  proficio::systems::JointVelocitySaturation<DOF> velsat(dampingConstants,
+                                                         velocity_limits);
+
+  barrett::systems::Normalize<cf_type> normalizeHelper;
+  barrett::systems::Magnitude<cf_type, double> magnitudeHelper;
+  
+  jv_type joint_vel_filter_freq(20.0);
+  barrett::systems::FirstOrderFilter<jv_type> joint_vel_filter;
+  joint_vel_filter.setLowPass(joint_vel_filter_freq);
+
+  // configure Systems
+  pid_controller.setKp(kpLine);
+  pid_controller.setKd(kdLine);
+
+  // line up coordinate axis with python visualization
+  barrett::systems::modXYZ<cp_type> mod_axes;
+  mod_axes.negX();
+  mod_axes.negY();
+  
+  mod_axes.xOffset(0.85);
+  if (side == LEFT) {
+    mod_axes.yOffset(0.27);
+  } else if (side == RIGHT) {
+    mod_axes.yOffset(-0.27);
+  }
+  mod_axes.zOffset(-0.2);  
+
+  // line up forces so that they correlate correctly with python visualization
+  barrett::systems::modXYZ<cf_type> mod_force;
+  mod_force.negX();
+  mod_force.negY();
+  barrett::systems::connect(wam.jpOutput, gravity_comp.input);
+  barrett::systems::connect(wam.jvOutput, joint_vel_filter.input);
+  barrett::systems::connect(joint_vel_filter.output, velsat.input);
+
+  barrett::systems::connect(wam.toolPosition.output, mod_axes.input);
+  barrett::systems::forceConnect(barrett::systems::message.output, network_haptics.input);
+  barrett::systems::connect(mod_axes.output, ball.input);
+  barrett::systems::connect(mod_axes.output, line.input);
+
+  barrett::systems::connect(ball.directionOutput, direction_sum.getInput(0));
+  barrett::systems::connect(line.directionOutput, direction_sum.getInput(1));
+
+  barrett::systems::connect(wam.kinematicsBase.kinOutput, tf2jt.kinInput);
+  barrett::systems::connect(direction_sum.output, magnitudeHelper.input);
+  barrett::systems::connect(direction_sum.output, normalizeHelper.input);
+  barrett::systems::connect(normalizeHelper.output, tuple_grouper.getInput<0>());
+  
+  barrett::systems::connect(magnitudeHelper.output, pid_controller.referenceInput);
+  barrett::systems::connect(zero.output, pid_controller.feedbackInput);
+  barrett::systems::connect(pid_controller.controlOutput, tuple_grouper.getInput<1>());
+
+  barrett::systems::connect(tuple_grouper.output, mult.input);
+  barrett::systems::connect(mult.output, mod_force.input);
+  barrett::systems::connect(mod_force.output, tf2jt.input);
+  barrett::systems::connect(tf2jt.output, joint_torque_sum.getInput(0));
+  barrett::systems::connect(gravity_comp.output, joint_torque_sum.getInput(1));
+  barrett::systems::connect(velsat.output, joint_torque_sum.getInput(2));
+  barrett::systems::connect(joint_torque_sum.output, joint_torque_saturation.input);
+
+  // adjust velocity fault limit
+  product_manager.getSafetyModule()->setVelocityLimit(1.5);
+  product_manager.getSafetyModule()->setTorqueLimit(3.0);
+  wam.idle();
+  barrett::systems::connect(joint_torque_saturation.output, wam.input);
+  // =============================================================================
+
 
   // Run Trial
   int trialNumber = 1;
@@ -467,6 +645,12 @@ int proficio_main(int argc, char** argv,
   target_center[1] = 0.417;
   target_center[2] = 0.366;
   double target_error = 0.03;
+  
+  //TODO: REMOVE
+  XorYorZ = 1;
+  UpOrDown = 1;
+  forceThreshold = 0.05;
+  //thresholdMet = true;
   
   bool taskComplete = false;
   bool taskSuccess = false;
@@ -582,7 +766,9 @@ int proficio_main(int argc, char** argv,
       // Run the experiment
       case START: //NOT SET HERE
       {
-        wam.moveTo(system_center);
+        //wam.moveTo(system_center);
+        thresholdMet = false;
+        wam.idle();
         //std::cout << "Starting..." << std::endl;
         state = TARGET_MOVE; // intentional fall-through
         std::cout << "state: target move " << state << std::endl;
@@ -771,17 +957,15 @@ int proficio_main(int argc, char** argv,
        //std::cout << "State: " << state << std::endl;
       }
     } // ** END POSITION JUDGE ** 
-
-    
-    
-	if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)
-  {
-		wam.moveHome();
-		return 0;
-  }
-  barrett::btsleep(0.02);
-#ifndef NO_CONTROL_PENDANT
-#endif
+ 
+    if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)
+    {
+      wam.moveHome();
+      return 0;
+    }
+    barrett::btsleep(0.02);
+  #ifndef NO_CONTROL_PENDANT
+  #endif
   }
   return 0;
 }

@@ -1,1 +1,1 @@
-/home/robot/src/Proficio_Internal/CMakeFiles/Proficio_Internal.dir
+/home/robot/Proficio_Balistic_Release/Proficio_Internal/CMakeFiles/Proficio_Internal.dir
