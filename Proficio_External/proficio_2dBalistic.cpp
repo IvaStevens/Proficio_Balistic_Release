@@ -439,7 +439,7 @@ unsigned long long getTimestamp()
  * moveInSteps
  * 
  * Move the wam to the center slowly while holding start button
- *
+ */
 template <size_t DOF>
 void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center, 
                  cp_type point, Dragonfly_Module mod, TargetZone trialManager)
@@ -450,35 +450,52 @@ void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center,
   double dz = (system_center[2] - point[2]) / nSteps;
   
   cp_type cp;
-  bool toggleMove = false;
+  bool isMoving = false;
+  bool isHome = false;
+  double stepSize= 0.05;
   
-  while (!trialManager->isHome(cp[1], cp[0], cp[2]))
+  while (!isHome)
   {
-    cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
-    
-    // Listen for start/stop moving message
-    mod.ReadMessage( &Consumer_M);
-    if (Consumer_M.msg_type == MT_MOVE_HOME)
+    while (isMoving)
     {
-      MDF_MOVE_HOME moving;
-      Consumer_M.GetData( &moving);
-      // wait to recieve start message
-      if (moving.shouldMove)
+      mod.ReadMessage( &Consumer_M);
+      // Check for a new message
+      if (Consumer_M.msg_type == MT_MOVE_HOME)
       {
-        toggleMove = true;
-      } 
-      else 
-      {
-        toggleMove = false;
+        MDF_MOVE_HOME moving;
+        Consumer_M.GetData( &moving);
+        // wait to recieve start message
+        if (!moving.shouldMove)
+        {
+          isMoving = false;
+          break; //escape while isMoving
+        }
       }
+      // no new message Move one step closer
+      cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
+      // calculate distance between point and home.
+      // if distance is greater than one step, move one step
+      // else move home
     }
-    if (toggleMove)
+    
+    // Listen for start moving message
+    while (!isMoving)
     {
-      //moveOneStep();
-    }    
-  }
+      mod.ReadMessage( &Consumer_M);
+      if (Consumer_M.msg_type == MT_MOVE_HOME)
+      {
+        MDF_MOVE_HOME moving;
+        Consumer_M.GetData( &moving);
+        // wait to recieve start message
+        if (moving.shouldMove)
+        {
+          isMoving = true;
+        } 
+      }
+    } //end while not isMoving
+  } // end while not isHome
 }
-*/
+
 
 /**
  * proficio_main
