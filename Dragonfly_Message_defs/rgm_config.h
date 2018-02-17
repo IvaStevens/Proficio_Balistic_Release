@@ -125,6 +125,7 @@ typedef struct {
 #define MT_CHANGE_TOOL_FAILED           1943
 
 #define MT_BURT_STATUS            1269
+#define MT_MOVE_HOME            1600
 #define MT_MODIFY_TASK            9621
 #define MT_TASK_STATE_CONFIG		    1950
 #define MT_JUDGE_VERDICT			    1960
@@ -387,6 +388,10 @@ typedef struct {
   double  force_z;
   int     state;
 } MDF_BURT_STATUS;
+
+typedef struct {
+  bool    shouldMove;
+} MDF_MOVE_HOME;
 
 typedef struct {
   int     type;
