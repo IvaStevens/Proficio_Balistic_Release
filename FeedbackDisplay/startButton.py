@@ -33,16 +33,18 @@ class StartButton():
                     print outMsg
                     
                     # send start/stop message
-                    if (outMsg == "N" || outMsg == "F"): # 'oN' or 'ofF' msg sent
+                    if ("N" in outMsg) or ("F" in outMsg): # 'oN' or 'ofF' msg sent
                         
-                        out.shouldMove = outMsg == "N"
+                        out.shouldMove = "F" in outMsg 
+                        
                         #send msg
+                        print "sending msg"
                         newMsg = CMessage(rc.MT_MOVE_HOME)
                         copy_to_msg(out, newMsg)
                         self.mod.SendMessage(newMsg)
                 except:
                     # send stop message
-                    out.moving = false;
+                    out.moving = False;
                     newMsg = CMessage(rc.MT_MOVE_HOME)
                     copy_to_msg(out, newMsg)
                     self.mod.SendMessage(newMsg);
