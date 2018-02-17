@@ -452,7 +452,10 @@ void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center,
   cp_type cp;
   bool isMoving = false;
   bool isHome = false;
-  double stepSize= 0.05;
+  double stepSize = 0.05;
+  cp_type travelLen;
+  cp_type unitVec;
+  cp_type step;
   
   while (!isHome)
   {
@@ -474,8 +477,20 @@ void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center,
       // no new message Move one step closer
       cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
       // calculate distance between point and home.
+      travelLen = cp - system_center;
+      
       // if distance is greater than one step, move one step
+      if (tavelLen.norm() > stepsize)
+      {
+        unit_vec = travelLen/((travelLen).norm());
+        step = cp + step*stepSize;
+        wam.moveTo(step);
+      }
       // else move home
+      else
+      { 
+        wam.moveTo(system_center);
+      }
     }
     
     // Listen for start moving message
