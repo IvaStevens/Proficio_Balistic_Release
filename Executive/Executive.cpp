@@ -94,7 +94,7 @@ int main( int argc, char *argv[])
     int nextState = RESET;
 
     //TODO Read in yaml file
-    vector<int> directions = {0, 0, 0, 0}; //2, 4, 6};
+    vector<int> directions = {2, 2, 2, 2};
     vector<double> forces = {0.01, 0.02, 0.03, 0.04};
     vector<int> widths = {3, 5, 10};
     vector<double> distances = {0.4, 0.6, 0.8};

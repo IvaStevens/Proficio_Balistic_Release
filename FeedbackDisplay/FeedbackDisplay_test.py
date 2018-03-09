@@ -372,13 +372,10 @@ class Display(ColorLayer):
                     
                     # change state to show success or failure
                     self.tgt_window.color = self.colorMod(MSTRD)
-                    if mdf.task_complete:
-                        if mdf.task_success:
-                            #self.setState(mdf, state)
+                    if mdf.state == enums.STATES.SUCCESS:
                             self.tgt_window.color = self.colorMod(GREEN)
                             pass #TODO
-                        else:
-                            #self.setState(mdf, state)
+                    if mdf.state == enums.STATES.FAIL:
                             self.tgt_window.color = self.colorMod(RED)
                             pass #TODO
                     if mdf.state == enums.STATES.RESTART:
