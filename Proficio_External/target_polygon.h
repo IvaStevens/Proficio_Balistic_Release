@@ -62,14 +62,17 @@ class TargetZone
   private:
     Rectangle _zone;
     Rectangle _target;
+    Rectangle _targetLim;
     Point _center; // System center
     double _zDepth;
-    double _angle;
+    double _angle; //radians
     double _width;
     
   public:
     Rectangle zoneR;
     Rectangle targetR;
+    Rectangle targetLimR;
+    double errorLim;
     const int &angle;  
   
   //========================== METHODS ==============================
@@ -82,7 +85,7 @@ class TargetZone
      * Constructor
      */
     TargetZone(double centerX, double centerY, double centerZ,
-               double width, double length, double depth = 0) : angle(_angle)
+               double width, double length, double errLim = 0, double depth = 0) : angle(_angle)
     {
       _center = Point(centerX, centerY, centerZ);
       double dx = length/2;
@@ -105,6 +108,9 @@ class TargetZone
       _zDepth = depth;
       
       _width = width;
+      
+      // set Limit you can be outside of target
+      errorLim = errLim;
     }
   
     /**
@@ -127,10 +133,22 @@ class TargetZone
       // set target region
       _target = Rectangle(tl, bl, br, tr);
       targetR = rotateRectangle(_target, _angle);
+      
+      // set Target error boundary for center--------------------------------------------
+      dx = (targetWidth/2) + errorLim;
+            
+      tl = targetCenter + Point( dx, dy, 0);
+      bl = targetCenter + Point( dx,-dy, 0);
+      br = targetCenter + Point(-dx,-dy, 0);
+      tr = targetCenter + Point(-dx, dy, 0);
+      
+      // set target region with error boundary
+      _targetLim = Rectangle(tl, bl, br, tr);
+      targetLimR = rotateRectangle(_targetLim, _angle);
     }
      
     /**
-     * Rotate public rectangle and target
+     * Rotate public rectangle and target, theta is in radians
      */
     void rotate(double theta)
     {
@@ -162,6 +180,16 @@ class TargetZone
       Point p = Point(x, y, z);
       return inRegion(zoneR, p);      
     }
+    
+    /**
+     * See if point is within the target with error boundary
+     */
+    bool inTargetLim(double x, double y, double z = 0)
+    {
+      Point p = Point(x, y, z);
+      return inRegion(targetLimR, p);
+    }
+    
     
     /**
      * See if point is within the target
@@ -244,7 +272,7 @@ class TargetZone
     }
     
     /**
-     * Rotate rectangle about system center in the XY plane
+     * Rotate rectangle about system center in the XY plane theta in radians
      */
     Rectangle rotateRectangle(Rectangle rect, double theta)
     {
@@ -257,7 +285,7 @@ class TargetZone
     }
     
     /**
-     * Rotate point about system center in the XY plane
+     * Rotate point about system center in the XY plane, theta is in radians
      */
     Point rotatePoint(Point p, double theta)
     {
