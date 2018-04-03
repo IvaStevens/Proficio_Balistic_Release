@@ -33,9 +33,9 @@ class StartButton():
                     print outMsg
                     
                     # send start/stop message
-                    if ("N" in outMsg) or ("F" in outMsg): # 'oN' or 'ofF' msg sent
+                    if ("On" in outMsg) or ("Off" in outMsg): # 'oN' or 'ofF' msg sent
                         
-                        out.shouldMove = "F" in outMsg 
+                        out.shouldMove = "Off" not in outMsg # double negative intentional
                         
                         #send msg
                         print "sending msg"

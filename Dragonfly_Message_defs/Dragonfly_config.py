@@ -740,6 +740,14 @@ MDF_SAMPLE_RESPONSE._fields_ = [
     ('sample_response_count', c_uint),
     ('sample_alignment_count', c_uint),
 ]
+# Burt task MIDs
+MID_EXECUTIVE               61
+MID_BURT_ROBOT              62
+MID_FEEDBACK                63
+MID_ARDUINO_START           64
+MID_REWARD_MODULE           65
+MID_TASK_EDIT               66
+
 MT_EM_MOVEMENT_COMMAND = 350 # Variable c_int '350'
 MID_GATING_JUDGE = 43 # Variable c_int '43'
 MPL_AT_ALL_JP = 4 # Variable c_int '4'
@@ -1188,4 +1196,6 @@ __all__ = ['MT_EM_MOVEMENT_COMMAND', 'MT_OVERRIDE_COMMAND',
            'MAX_SPIKE_SOURCES', 'MID_COMMAND_SPACE_FEEDBACK_GUI',
            'MID_THE_DECIDER', 'MDF_CHANGE_TOOL_COMPLETE',
            'MID_DENSO_MOD', 'MT_LOAD_DECODER_CONFIG',
-           'MDF_PLANNER_MOVEMENT_COMMAND']
+           'MDF_PLANNER_MOVEMENT_COMMAND', 'MID_EXECUTIVE', 'MID_BURT_ROBOT',
+           'MID_FEEDBACK', 'MID_ARDUINO_START', 'MID_REWARD_MODULE',
+           'MID_TASK_EDIT']

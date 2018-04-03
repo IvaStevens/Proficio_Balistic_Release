@@ -144,39 +144,6 @@ namespace barrett {
         
         depthOutputValue->setData(&depth);
         directionOutputValue->setData(&error);
-        
-        /*
-        pos = input.getValue();
-        for (int i=0;i<3;i++){
-          dir[i] = 0.0;
-        }
-        if (!thresholdMet){
-          cforce = c - pos;
-          // check the magnitude of exerted force
-          if ((barrett::math::sign(forceThreshold)==1 && cforce[XorYorZ] >= forceThreshold) ||
-            (barrett::math::sign(forceThreshold)==-1 && cforce[XorYorZ] <= forceThreshold))
-          {
-            thresholdMet = true;
-            std::cout << "threshold met" << std::endl;
-          }
-          
-          depth = cforce.norm();
-          dir[XorYorZ] = cforce[XorYorZ];
-        }else{
-          depth = 0.0;
-        }
-        for (int i=0;i<3;i++){
-          msg_tmp[i] = pos[i];
-        }
-        for (int i=3;i<6;i++){
-          msg_tmp[i]=0;
-        }
-        msg_tmp[XorYorZ+3] = UpOrDown * targetDistance;
-        
-        message.setValue(msg_tmp);
-        
-        depthOutputValue->setData(&depth);
-        directionOutputValue->setData(&dir); //balistic */
       }
 
       cp_type c;
@@ -342,7 +309,7 @@ void instantiate_proficio( barrett::ProductManager& product_manager,  // NOLINT
   barrett::systems::Summer<jt_type, 3> joint_torque_sum("+++");
   // EDIT FOR VIBRATIONS
   jt_type jtLimits(45.0);
-  jtLimits[2] =25.0;
+  jtLimits[2] = 25.0;
   jtLimits[0] = 55.0;
   proficio::systems::JointTorqueSaturation<DOF> joint_torque_saturation(
       jtLimits);

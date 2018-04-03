@@ -13,7 +13,6 @@ from cocos.sprite import Sprite
 from cocos.text import Label
 
 from enumParser import ENUMS as enums
-#bp()
 from primitives import Polygon, Circle
 
 from shapely.geometry import Point
@@ -70,7 +69,7 @@ TARGET_ORIGIN = [(260, 680), (260, 720), (440, 720), (440, 680)]
 POSITION_ORIGIN = [(260, 60), (260, 740), (440, 740), (440, 60)]
 CURSOR_ORIGIN = [350, 400]
 
-currentAngle = -90
+currentAngle = 45 #-90
 
 
 class Display(ColorLayer):
@@ -114,7 +113,7 @@ class Display(ColorLayer):
                                     stroke=0)
                                     
         #self.rotatePositionBar(currentAngle)
-        #elf.resizePolygon(self.position_bar)
+        #self.resizePolygon(self.position_bar)
         
         self.cursor = Circle(x=CURSOR_ORIGIN[0], 
                              y=CURSOR_ORIGIN[1], 
@@ -172,29 +171,35 @@ class Display(ColorLayer):
         self.schedule_interval(self.update, 0.01)
         print "init"
 
-        #     def timer_count_down(self, dt):
-        #         self.timer_sec -= 1
-        #         
-        #         if self.timer_sec < 0:
-        #             if self.timer_min > 0:
-        #                 self.timer_min -= 1
-        #                 self.timer_sec = 59
-        #             else:
-        #                 self.unschedule(self.timer_count_down)
-        #                 self.combo_wait_txt.text = ''
-        #                 self.screen_on()
-        #                 return
-        #         
-        #         self.combo_wait_txt.text = 'Relax Time   %d:%02d' % (self.timer_min, self.timer_sec)
-        # 
-        #         if self.timer_min == 0 and self.timer_sec <= 5 and self.timer_sec > 0:
-        #             winsound.PlaySound(os.path.join(os.environ.get('ROBOT_CONFIG'), 'default', 'gocue.wav'), winsound.SND_FILENAME | winsound.SND_ASYNC)
+
+    # Show the countdown screen for X seconds
+    def timerCountdown(self, dt):
+        timerSound = os.path.join(os.environ.get('ROBOT_CONFIG'), 'default', 'gocue.wav')
+        self.timer_sec -= 1
+       
+        if self.timer_sec < 0:
+           if self.timer_min > 0:
+               self.timer_min -= 1
+               self.timer_sec = 59
+           else:
+               self.unschedule(self.timer_count_down)
+               self.combo_wait_txt.text = ''
+               self.screen_on()
+               return
+       
+         self.combo_wait_txt.text = 'Relax Time   %d:%02d' % (self.timer_min, self.timer_sec)
+
+         if self.timer_min == 0 and self.timer_sec <= 5 and self.timer_sec > 0:
+    
+             winsound.PlaySound(timerSound, winsound.SND_FILENAME | winsound.SND_ASYNC)
+
 
     # Convert base 255 color to base 1.0 color scale
     def colorMod(self, color):
         # Base 255 color
         temp = tuple( c/255.0 for c in color )
         return temp #+ (1.0,)
+
 
     def resizePolygon(self, polygon):
         for i in xrange(4):
@@ -213,6 +218,7 @@ class Display(ColorLayer):
         right = cy + length
         return [(left, top), (left, bot), (bot, right), (top, right)]
 
+
     # Rotate a point around specified origin
     def rotatePoint(self, oldPoint, angle, origin):
         ox, oy = origin
@@ -220,7 +226,8 @@ class Display(ColorLayer):
         qx = ox + (math.cos(angle) * (px - ox)) - (math.sin(angle) * (py - oy))
         qy = oy + (math.sin(angle) * (px - ox)) + (math.cos(angle) * (py - oy))
         return qx, qy
-    
+   
+   
     # Move the target origin, and change its sixe
     def getNewTarget(self, width, newDistance):
         yCenter = (DIST*newDistance) + FB_CENTER[1]
@@ -233,6 +240,7 @@ class Display(ColorLayer):
         #bp()
         TARGET_ORIGIN = newTarget
         return newTarget
+
 
     # Set the task state
     def setState(self, msg, state = 1):
@@ -282,11 +290,13 @@ class Display(ColorLayer):
         polygon = Shapelygon(self.position_bar.v)
         return polygon.contains(point)
 
+
     # Move the cursor to a new location
     def moveCursor(self, circle, x, y):
         circle.x = x
         circle.y = y
         print "moving to: ", x, " ,", y
+
 
     #Rotate a shape about origin
     def rotate(self, polygon, angle, origin):
@@ -305,6 +315,7 @@ class Display(ColorLayer):
         rotated = [topL, botL, botR, topR]
         polygon.v = rotated
         # self.resizePolygon(self.position_bar)
+        bp()
         return rotated
 
 
@@ -479,9 +490,11 @@ class Display(ColorLayer):
                 
             break
 
+
     # Convert point from BURT to appropriate displayable position
     def mapBurt2Display(self, x, y, z = 0):
         return (x, y)
+
 
     def transformPolygon(self, polygon, transformationType):
         for i in xrange(4):
@@ -500,8 +513,6 @@ class Display(ColorLayer):
             return (input_point[1], input_point[0])
         else:
             print "unknown transform type"
-
-    #def on_key_release( self, keys, mod ):
 
 
     def draw(self):
