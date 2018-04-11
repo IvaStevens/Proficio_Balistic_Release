@@ -1,10 +1,16 @@
 #include <stdio.h>
+#include "json.hpp"
 #include "Dragonfly.h"
 #include "Dragonfly_config.h"
 #include "params.h"
 #include <vector>
 #include <math.h>
+#include <string>
+#include <fstream>
+#include <streambuf>
+
 using namespace std;
+using json = nlohmann::json;
 
 class TargetNode
 {
@@ -65,6 +71,63 @@ vector<TargetNode> initTargetList(
 };
 
 
+bool modifyTask(
+  MDF_MODIFY_TASK edits,
+  vector<TargetNode>::iterator &targetIter,
+  TargetNode &nextTarget, 
+  bool &rewardable)
+{
+  bool targetChanged = false;
+  switch (edits.type)
+  {
+    case CONTROL: // Manually control the robot position. TODO
+      break;
+    case FREEZE: // Freeze the robot in place. TODO
+      break;
+    case HOME: // Move the robot back home. TODO
+      break;
+    case REPEAT: // Repeat current trial
+    {
+      // Automatically used nextTrial which already
+      // is the same as the current
+      targetChanged = true;
+      break;
+    }
+    case REWARD: // Give a reward now
+      break;
+    case REWARD_SET: // Set reward level
+      break;
+    case REWIND: // Do last trial again
+    {
+      nextTarget = *(--targetIter);
+      targetChanged = true;
+      break;
+    }
+    case SKIP: // Skip next trial
+    {
+      ++targetIter;
+      nextTarget = *(++targetIter);
+      targetChanged = true;
+      break;
+    }
+    case TARGET: // Set the target
+    {
+      int dir = edits.direction;
+      double dist = edits.distance;
+      double force = edits.force;
+      int wid = edits.target_width;
+      TargetNode node TargetNode(dist, dir, wid, force);
+      nextTarget = node;
+      targetChanged = true;
+      break;
+    }
+    default: // Bad messgae sent. Error (?)
+      break;
+  }
+  return targetChanged;
+};
+
+
 /**
  * main
  *
@@ -72,6 +135,40 @@ vector<TargetNode> initTargetList(
  */
 int main( int argc, char *argv[])
 {
+  if (argc < 1) 
+  {
+      cout << "Missing configuration file" << endl;
+      return -1;
+  }
+  char *configPath = argv[1];
+   
+  //Read in configuration file (json)
+  json configJson; 
+  ifstream textStream(configPath);
+  textStream >> configJson;
+  
+  vector<int> trials;
+  vector<int> directions;   // = {2, 1, 0};
+  vector<double> forces;    // = {0.01, 0.02, 0.03, 0.04};
+  vector<int> widths;       // = {1, 2, 3};
+  vector<double> distances; // = {0.10, 0.15, 0.20};
+  double tError;            // = 0.03;
+  //double version;
+  
+  // Set task configuration
+  if (configJson["Version"] == 1.0)
+  {
+      //version = (double) configJson["Version"];
+      tError = (double) configJson["tError"];
+      
+      forces = configJson["Combos"]["force"].get<vector<double>>();
+      distances = configJson["Combos"]["distance"].get<vector<double>>();
+      
+      directions = configJson["Combos"]["direction"].get<vector<int>>();
+      trials = configJson["Combos"]["#"].get<vector<int>>();
+      //widths = configJson["combos"]["widths"].get<vector<int>>();
+  }
+
 	try 
 	{
 		Dragonfly_Module mod( 0, 0);
@@ -94,7 +191,7 @@ int main( int argc, char *argv[])
     int nextState = RESET;
 
     //TODO Read in yaml file
-    vector<int> directions = {0, 0, 0, 0}; //2, 4, 6};
+    vector<int> directions = {2, 2, 2, 2};
     vector<double> forces = {0.01, 0.02, 0.03, 0.04};
     vector<int> widths = {3, 5, 10};
     vector<double> distances = {0.4, 0.6, 0.8};

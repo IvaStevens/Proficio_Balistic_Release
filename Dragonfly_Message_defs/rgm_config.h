@@ -30,13 +30,23 @@
 #define MID_COLOR_CUE               46
 #define MID_FSR_EMG                 47
 
-#define MID_NETBOX_MODULE			25
+#define MID_NETBOX_MODULE           25
 #define MID_DENSO_GATE              15
 #define MID_SURFACE_EMG             36
 #define MID_CUBE_SPHERE             38
 
 // -------- UNUSED MIDs ----------------------
-// 38
+// 20, 21, 22, 23, 24, 26, 48, 50
+// 51, 52, 53, 54, 55, 59, 60, 61
+// 62, 63, 64, 65, 66, 67, 68, 69
+
+// BURT TASK MIDS
+#define MID_EXECUTIVE               61
+#define MID_BURT_ROBOT              62
+#define MID_FEEDBACK                63
+#define MID_ARDUINO_START           64
+#define MID_REWARD_MODULE           65
+#define MID_TASK_EDIT               66
 
 
 // <EM Override config from MD_GUI - Mike>
@@ -125,6 +135,7 @@ typedef struct {
 #define MT_CHANGE_TOOL_FAILED           1943
 
 #define MT_BURT_STATUS            1269
+#define MT_MOVE_HOME            1600
 #define MT_MODIFY_TASK            9621
 #define MT_TASK_STATE_CONFIG		    1950
 #define MT_JUDGE_VERDICT			    1960
@@ -387,6 +398,10 @@ typedef struct {
   double  force_z;
   int     state;
 } MDF_BURT_STATUS;
+
+typedef struct {
+  bool    shouldMove;
+} MDF_MOVE_HOME;
 
 typedef struct {
   int     type;

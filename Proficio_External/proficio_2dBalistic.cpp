@@ -11,6 +11,7 @@
 #include "/home/robot/Proficio_Balistic_Release/Dragonfly_Message_defs/Dragonfly_config.h"
 #include "params.h"
 #include "target_polygon.h"
+#include <unistd.h>
 
 #include <dragonfly/Dragonfly.h>
 
@@ -52,21 +53,32 @@
 
 #include <proficio/standard_proficio_main.h>    // NOLINT(build/include_order)
 
+#define PI 3.14159265359
+
 BARRETT_UNITS_FIXED_SIZE_TYPEDEFS;
 BARRETT_UNITS_TYPEDEFS(6);  // defines v_type to have length 6
 
 const char* remoteHost = NULL;
+
 // EDIT FOR VIBRATIONS
 double kpLine = 3e3;
 double kdLine = 4e1;
+
 bool game_exit = false;
 bool thresholdMet = false;
+bool yDirectionError = false;
 int XorYorZ;
 double forceThreshold;
 double targetDistance;
 int UpOrDown;
 cf_type cforce;
 cp_type pos;
+
+  
+bool taskComplete = false;
+bool taskSuccess = false;
+bool hasError = false;
+int state = RESET;
 
 
 /** 
@@ -133,7 +145,7 @@ namespace barrett {
             thresholdMet = true;
             depth = 0.0;
             error.setZero();
-            std::cout << "threshold met, " << mag << std::endl;
+            // std::cout << "threshold met, " << mag << std::endl;
           }
         } 
         else 
@@ -144,39 +156,6 @@ namespace barrett {
         
         depthOutputValue->setData(&depth);
         directionOutputValue->setData(&error);
-        
-        /*
-        pos = input.getValue();
-        for (int i=0;i<3;i++){
-          dir[i] = 0.0;
-        }
-        if (!thresholdMet){
-          cforce = c - pos;
-          // check the magnitude of exerted force
-          if ((barrett::math::sign(forceThreshold)==1 && cforce[XorYorZ] >= forceThreshold) ||
-            (barrett::math::sign(forceThreshold)==-1 && cforce[XorYorZ] <= forceThreshold))
-          {
-            thresholdMet = true;
-            std::cout << "threshold met" << std::endl;
-          }
-          
-          depth = cforce.norm();
-          dir[XorYorZ] = cforce[XorYorZ];
-        }else{
-          depth = 0.0;
-        }
-        for (int i=0;i<3;i++){
-          msg_tmp[i] = pos[i];
-        }
-        for (int i=3;i<6;i++){
-          msg_tmp[i]=0;
-        }
-        msg_tmp[XorYorZ+3] = UpOrDown * targetDistance;
-        
-        message.setValue(msg_tmp);
-        
-        depthOutputValue->setData(&depth);
-        directionOutputValue->setData(&dir); //balistic */
       }
 
       cp_type c;
@@ -222,29 +201,38 @@ namespace barrett {
        * operate
        */
       virtual void operate() {
-        //p = input.getValue();
+        pos = input.getValue();
         inputForce = c - input.getValue();
-        inputForce[0] = 0; // No force in Y direction
-        inputForce[1] = 0; // No force in X direction
-        //inputForce.setZero();
-
-        /* -------- added ---------------
-        if (0.2 + c[XorYorZ] < pos[XorYorZ]){
-            inputForce[XorYorZ] = 0.2 + c[XorYorZ] - p[XorYorZ];
-        }
-        if(-0.2 + c[XorYorZ] > pos[XorYorZ]){
-            inputForce[XorYorZ] = -0.2 + c[XorYorZ] - p[XorYorZ];
-        }
-        // ------------------------------- */
         
-        depth = inputForce.norm();
-        dir = inputForce;
+        // Weird shaking when fully extended. Stop compensating for z 
+        // direction at this point. Ensure whatever distance this is, no trial requires 
+        // going past it { ie trial fails b/c !inTarget() } 
+        if ((pos[0] < (-0.53125 / 2) + 0.450) || yDirectionError) 
+        //MAGIC NUMBER!!! Y length greater than half trackLength
+        {
+          thresholdMet = true; // (quit force) In theory this should already be true
+          yDirectionError = true; // Force Quit 
+          
+          inputForce.setZero();
+          
+          depth = 0.0;
+          dir = inputForce;
+          
+        }
+        else { // Just set the X and Y forces to 0
+          inputForce[0] = 0; // No force in Y direction
+          inputForce[1] = 0; // No force in X direction
+          
+          depth = inputForce.norm();
+          dir = inputForce;
+        }
+        
         depthOutputValue->setData(&depth);
         directionOutputValue->setData(&dir); //haptic
       }
 
       cp_type c;
-      //cp_type p;
+      cp_type pos;
 
       // state & temporaries
       cf_type inputForce;
@@ -342,7 +330,7 @@ void instantiate_proficio( barrett::ProductManager& product_manager,  // NOLINT
   barrett::systems::Summer<jt_type, 3> joint_torque_sum("+++");
   // EDIT FOR VIBRATIONS
   jt_type jtLimits(45.0);
-  jtLimits[2] =25.0;
+  jtLimits[2] = 25.0;
   jtLimits[0] = 55.0;
   proficio::systems::JointTorqueSaturation<DOF> joint_torque_saturation(
       jtLimits);
@@ -438,47 +426,151 @@ unsigned long long getTimestamp()
 /**
  * moveInSteps
  * 
- * Move the wam to the center slowly while holding start button
- *
+ * Move the wam to the center slowly while subject holding start button
+ */
 template <size_t DOF>
-void moveInSteps(barrett::systems::Wam<DOF>& wam, cp_type system_center, 
-                 cp_type point, Dragonfly_Module mod, TargetZone trialManager)
-{
-  int nSteps = 10;
-  double dx = (system_center[0] - point[0]) / nSteps;
-  double dy = (system_center[1] - point[1]) / nSteps;
-  double dz = (system_center[2] - point[2]) / nSteps;
+void moveInSteps(barrett::systems::Wam<DOF>& wam,
+                 cp_type system_center,
+                 Dragonfly_Module &mod)
+{  
+  cout << "Press and hold start button, now" << endl;
+  cp_type currentPos;
+	CMessage Consumer_M;
+  bool isMoving = false;
+  bool isHome = false;
+  double stepSize = 0.03; // meters so 10cm...
+  double epsilon = 0.003; // 3mm
+  cp_type travelLen;
+  cp_type unitVec;
+  cp_type step;
   
-  cp_type cp;
-  bool toggleMove = false;
-  
-  while (!trialManager->isHome(cp[1], cp[0], cp[2]))
+  while (!isHome)
   {
-    cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
-    
-    // Listen for start/stop moving message
-    mod.ReadMessage( &Consumer_M);
-    if (Consumer_M.msg_type == MT_MOVE_HOME)
-    {
-      MDF_MOVE_HOME moving;
-      Consumer_M.GetData( &moving);
-      // wait to recieve start message
-      if (moving.shouldMove)
+    while (isMoving)
+    {      
+      // No new message; Move one step closer
+      currentPos = barrett::math::saturate(wam.getToolPosition(), 9.999);
+      
+      // Calculate distance between point and home.
+      travelLen = currentPos - system_center;
+      
+      cout << "Travel length: " << travelLen << ": " << travelLen.norm() << endl;
+      
+      // If distance is greater than a step, move one step (10cm toward starting position)
+      if (travelLen.norm() > stepSize)
       {
-        toggleMove = true;
-      } 
-      else 
+        unitVec = travelLen/travelLen.norm();
+        step = currentPos - stepSize*unitVec;
+        
+        cout << "unit and step: " << unitVec << ": " << step << endl;
+        wam.moveTo(step);
+        
+        // Check for new message
+        mod.ReadMessage( &Consumer_M);
+        
+        // Check for a new message
+        if (Consumer_M.msg_type == MT_MOVE_HOME)
+        {
+          MDF_MOVE_HOME moving;
+          Consumer_M.GetData( &moving);
+          // Wait to recieve start message
+          if (!moving.shouldMove)
+          {
+            isMoving = false;
+            cout << "Waiting for subject to hold start button: " << currentPos << endl;
+            break;
+          }
+        }
+        sleep(1);
+      }
+      // Move home
+      if (travelLen.norm() < epsilon)
       {
-        toggleMove = false;
+        isHome = true;
+        cout << "Proficio already home" << endl;
+        return;
+      }
+      else
+      { 
+        wam.moveTo(system_center);
+        isHome = true;
+        cout << "Proficio reached home" << endl;
+        return;
       }
     }
-    if (toggleMove)
+    
+    // Listen for start moving message
+    while (!isMoving)
     {
-      //moveOneStep();
-    }    
-  }
+      mod.ReadMessage( &Consumer_M);
+      if (Consumer_M.msg_type == MT_MOVE_HOME)
+      {
+        MDF_MOVE_HOME moving;
+        Consumer_M.GetData( &moving);
+        
+        // Wait to recieve start message
+        if (moving.shouldMove)
+        {
+          isMoving = true;
+          cout << "Subject holding button, moving" << endl;
+        } 
+      }
+      else
+      {
+        cout << "Received weird message: " << Consumer_M.msg_type << endl;
+      }
+    } //end while not isMoving
+  } // end while not isHome
 }
-*/
+
+
+
+/**
+ * ping for stats
+ */
+template <size_t DOF>
+void ping(barrett::systems::Wam<DOF>& wam, Dragonfly_Module mod)
+ {
+   try 
+   {
+     while (true)
+     {
+       MDF_BURT_STATUS burt_status_data;
+       cp_type cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
+       
+       //------------- Ping for these stats-----------------------------    
+       // Set Task state
+       burt_status_data.task_complete = taskComplete;
+       burt_status_data.task_success = taskSuccess;
+       burt_status_data.timestamp = getTimestamp();
+       burt_status_data.state = state;
+       burt_status_data.error = hasError;
+      
+       // Set Force Data
+       burt_status_data.force_x = cforce[1];
+       burt_status_data.force_y = cforce[0];
+       burt_status_data.force_z = cforce[2];
+      
+       // Set Position Data  TODO: MOVE CONVERSION ELSEWHERE
+       burt_status_data.pos_x = cp[1]* 1280 / 0.2; // Assume this is accurate
+       burt_status_data.pos_y = cp[0]* 1280 / 0.2; // TODO: check that cp has the right value
+       burt_status_data.pos_z = cp[2]* 1280 / 0.2; // and is set properly
+      
+      
+       // Send Message
+       CMessage M( MT_BURT_STATUS );
+       M.SetData( &burt_status_data, sizeof(burt_status_data) );
+       mod.SendMessageDF( &M );
+     }
+    
+   }
+   catch( exception &e)
+   {
+     std::cout << "ERROR! No longer logging data!!!" << e.what() << std::endl;
+   }
+ }
+ 
+
 
 /**
  * proficio_main
@@ -492,7 +584,7 @@ int proficio_main(int argc, char** argv,
                   const Config& side) {  
   BARRETT_UNITS_TEMPLATE_TYPEDEFS(DOF);
   // Initializing Dragonfly
-  Dragonfly_Module mod( MID_CUBE_SPHERE, 0);
+  Dragonfly_Module mod( MID_CUBE_SPHERE, 0); //
   try
   {
     mod.ConnectToMMM();
@@ -505,6 +597,7 @@ int proficio_main(int argc, char** argv,
   // Subscribe to executive messages
   mod.Subscribe( MT_TRIAL_INPUT);
   mod.Subscribe( MT_TASK_STATE_CONFIG);
+  mod.Subscribe( MT_MOVE_HOME);
   
   // Instantiate Proficio
   const cp_type system_center(0.450, -0.120, 0.250);
@@ -559,14 +652,14 @@ int proficio_main(int argc, char** argv,
   barrett::systems::Summer<jt_type, 3> joint_torque_sum("+++");
   // EDIT FOR VIBRATIONS
   jt_type jtLimits(45.0);
-  jtLimits[2] =25.0;
+  jtLimits[2] =35.0;
   jtLimits[0] = 55.0;
   proficio::systems::JointTorqueSaturation<DOF> joint_torque_saturation(
       jtLimits);
   // EDIT FOR VIBRATIONS
-  v_type dampingConstants(20.0);
-  dampingConstants[2] = 10.0;
-  dampingConstants[0] = 50.0;
+  v_type dampingConstants(50.0); //20;
+  dampingConstants[2] = 10.0;    //10;
+  dampingConstants[0] = 10.0;    //50;
   jv_type velocity_limits(1.7);
   proficio::systems::JointVelocitySaturation<DOF> velsat(dampingConstants,
                                                          velocity_limits);
@@ -649,13 +742,8 @@ int proficio_main(int argc, char** argv,
   //TODO: REMOVE
   XorYorZ = 1;
   UpOrDown = 1;
-  forceThreshold = 0.05;
+  forceThreshold = 0.02;
   //thresholdMet = true;
-  
-  bool taskComplete = false;
-  bool taskSuccess = false;
-  bool hasError = false;
-  int state = RESET;
   
   std::deque<double> scores;
 	CMessage Consumer_M;
@@ -670,6 +758,8 @@ int proficio_main(int argc, char** argv,
   // Todo: these shouldn't be modifiable easily.
   double targetWidth = 0.28125;
   double trackLength = 0.53125; //0.5234375; actual reaching distance
+  double errorLimit = 0.008;
+  
   // double zDepth = 0
   double targetReached = false;
   
@@ -678,8 +768,8 @@ int proficio_main(int argc, char** argv,
  
   TargetZone * trialManager = new TargetZone(system_center[1], system_center[0],
                                           system_center[2], targetWidth,
-                                          trackLength*2);
-  // TODO: remove                                        
+                                          trackLength*2, errorLimit);
+  // TODO: remove
   // trialManager->setTarget(0.4*trackLength, trackLength/3);
   
   EnumParser<STATES> parser;
@@ -698,29 +788,13 @@ int proficio_main(int argc, char** argv,
   //boost::mutex mtx;
   
   while (true) {  // Allow the user to stop and resume with pendant buttons
+    //cout << "while..." << endl;
 		cp = barrett::math::saturate(wam.getToolPosition(), 9.999);
-		// this code is to be sent to the python visualization
-    /*
-		MDF_RT_POSITION_FEEDBACK pos_data;
-		pos_data.distanceFromCenter = std::abs(cp[XorYorZ] - system_center[XorYorZ]) * 1240 / 0.2;
-		CMessage pos_M( MT_RT_POSITION_FEEDBACK);
-		pos_M.SetData( &pos_data, sizeof(pos_data));
-		//mod.SendMessageDF( &pos_M); 
-		
-		// send messages signifying how far it is along the track
-		// receive messages from consumer where the target is
-		// jt = barrett::math::saturate(wam.getJointTorques(), 99.99);
-		MDF_FORCE_FEEDBACK force_data;
-		force_data.x = cforce[0];
-		force_data.y = cforce[1];
-		force_data.z = cforce[2];
-		CMessage force_M( MT_FORCE_FEEDBACK);
-		force_M.SetData( &force_data, sizeof(force_data));
-		//mod.SendMessageDF( &force_M); */
     
     MDF_BURT_STATUS burt_status_data;
     
-    //------------- Ping for these stats-----------------------------    
+    //------------- Ping for these stats----------------------------- 
+    //cout << "ping start" << endl;   
     // Set Task state
     burt_status_data.task_complete = taskComplete;
     burt_status_data.task_success = taskSuccess;
@@ -738,28 +812,21 @@ int proficio_main(int argc, char** argv,
     burt_status_data.pos_y = cp[0]* 1280 / 0.2; // TODO: check that cp has the right value
     burt_status_data.pos_z = cp[2]* 1280 / 0.2; // and is set properly
     
-    
+    //cout << "end ping" << endl;
     // Send Message
     CMessage M( MT_BURT_STATUS );
     M.SetData( &burt_status_data, sizeof(burt_status_data) );
+    //cout << "will send ping" << endl;
     mod.SendMessageDF( &M );
-    
-    //-----------------------------------------------------------------
-		// ** POSITION JUDGE**    
+    //cout << "sent ping" << endl;
     
     
-    
-    /*
-    if ( trialManager->inTarget(cp[1], cp[0]) )
+    // If beyond Y direction limits stop the experiment. 
+    if(yDirectionError)
     {
-      taskSuccess = true;
+      state = ERROR;
     }
-    else
-    {
-      taskSuccess = false;
-      std::cout << "Point: " << cp[1] << ", " << cp[0] << std::endl;
-    }
-    */
+    //cout << "checked yerror" << endl;
     
     switch(state)
     {
@@ -768,24 +835,25 @@ int proficio_main(int argc, char** argv,
       {
         //wam.moveTo(system_center);
         thresholdMet = false;
+        // 
+        cout << "idleing wam..." << endl;
         wam.idle();
         //std::cout << "Starting..." << std::endl;
         state = TARGET_MOVE; // intentional fall-through
-        std::cout << "state: target move " << state << std::endl;
+        cout << "state: target move " << state << endl;
         timer = clock();
         break;
       }
       case FORCE_RAMP:
       { // get to correct force in X time
         //std::cout << "State: " << state << std::endl;
-        if (rampTimeF < ((clock() - timer) / CLOCKS_PER_SEC) )
+        if (rampTimeF < ((double)(clock() - timer) / CLOCKS_PER_SEC)  )
         {
           //mtx.lock();
-          std::cout << "OUT OF TIME A" << state << std::endl;
+          cout << "OUT OF TIME A" << state << endl;
           state = FAIL;
-          std::cout << "state: fail 1." << state << std::endl;
+          cout << "state: fail 1." << state << endl;
           taskSuccess = false;
-          //taskComplete = true;
           //mtx.unlock();
           break;
         }
@@ -796,21 +864,20 @@ int proficio_main(int argc, char** argv,
         }
         //mtx.lock();
         state = TARGET_MOVE;
-        std::cout << "state: target move " << state << std::endl;
+        cout << "state: target move " << state << endl;
         //mtx.unlock();
         timer = clock(); // reset timer and intentionally fall through
       }
       case TARGET_MOVE:
       { 
         // Move to target    
-        if (rampTimeT < ((clock() - timer) / (double) CLOCKS_PER_SEC) )
+        if (rampTimeT < ((double)(clock() - timer) / CLOCKS_PER_SEC)  )
         {
           //mtx.lock();
-          std::cout << "OUT OF TIME B" << state << std::endl;
+          cout << "OUT OF TIME B" << state << endl;
           state = FAIL;
-          std::cout << "state: fail 2." << state << std::endl;
+          cout << "state: fail 2." << state << endl;
           taskSuccess = false;
-          //taskComplete = true;
           //mtx.unlock();
           break;
         }
@@ -819,9 +886,8 @@ int proficio_main(int argc, char** argv,
         {
           //mtx.lock();
           state = FAIL;
-          std::cout << "state: fail 3." << state << std::endl;
+          cout << "state: fail 3." << state << endl;
           taskSuccess = false;
-          //taskComplete = true;
           //mtx.unlock();
           break;
         }
@@ -830,51 +896,46 @@ int proficio_main(int argc, char** argv,
         { // in target zone
           timer = clock();
           //mtx.lock();
-          state = TARGET_HOLD; // intentional fall-through
-          std::cout << "state: target hold " << state << std::endl;
+          state = TARGET_HOLD;
+          cout << "state: target hold " << state << endl;
+          break;
           //mtx.unlock();
         }
-        else
-        {
-          break;
-        }
+        break;
       }
       case TARGET_HOLD:
       {
         //std::cout << "State: " << state << std::endl;
-        if (holdTimeT < ((clock() - timer) / CLOCKS_PER_SEC) )
+        if (holdTimeT < ((double)(clock() - timer) / CLOCKS_PER_SEC) )
         {
           // if held long enough then success
           //mtx.lock();
           state = SUCCESS;
-          std::cout << "state: success " << state << std::endl;
+          cout << "state: success " << state << endl;
           taskSuccess = true;
-          //taskComplete = true;
           //mtx.unlock();
         }
-        // if exits zone, then fail
-        if (!trialManager->inTarget(cp[1], cp[0]));
+        if (!trialManager->inTargetLim(cp[1], cp[0]))
         {
           //mtx.lock();
           state = FAIL;
-          std::cout << "state: fail 4." << state << std::endl;
+          cout << "state: fail 4." << state << endl;
           taskSuccess = false;
-          //taskComplete = true;
           //mtx.unlock();
         }
         break;
       }
       // Reach target, send success message
       case SUCCESS:
-        std::cout << "State success: " << state << std::endl;
+        cout << "State success: " << state << endl;
       // Did not reach target send fail
       case FAIL:
-        std::cout << "State: fail 5." << state << std::endl;
+        cout << "State: fail 5." << state << endl;
       // reset parameters and prep for next round
       case RESET: //NOT SET HERE
       {
-        std::cout << "State reseting: " << state << std::endl;
-        wam.moveTo(system_center);
+        cout << "State reseting: " << state << endl;
+                
         taskComplete = true;
         //------------- Ping for these stats-----------------------------    
         // Set Task state
@@ -910,20 +971,21 @@ int proficio_main(int argc, char** argv,
             distance = task_state_data.distance * trackLength;
             state = task_state_data.state;
             std::cout << "state: updating " << state << std::endl;
-            angle = task_state_data.direction;
+            angle = -task_state_data.direction * PI / 4.0;
             force = task_state_data.force;
             width = trackLength / (double)task_state_data.target_width;
             
             // Set new trial parameters
-            // trialManager->rotate(angle);
+            trialManager->rotate(angle);
             trialManager->setTarget(distance, width);
+            trialManager->rotate(angle);
            
             comboInd = task_state_data.target_combo_index;
             
-            std::cout << "New message" << std::endl;
-            std::cout << "Distance: " << distance << std::endl;
-            std::cout << "Angle: " << angle << std::endl;
-            std::cout << "Width: " << width << " : " << task_state_data.target_width << " : " << trackLength << std::endl;
+            cout << "New message" << endl;
+            cout << "Distance: " << distance << endl;
+            cout << "Angle: " << angle << endl;
+            cout << "Width: " << width << " : " << task_state_data.target_width << " : " << trackLength << endl;
            
             // TODO: Other for later....
             //rep_num
@@ -934,7 +996,15 @@ int proficio_main(int argc, char** argv,
             taskComplete = false;
             break; // Break out of inner while loop
           }
+          else
+          {
+            cout << "Received weird message: " << Consumer_M.msg_type << endl;
+          }
         }
+        //wam.moveTo(system_center); 
+        moveInSteps(wam, system_center, mod);
+        state = START;
+        //cout << "Not moving" << endl;
         break; // Break out of RESET case
       }
       // Error occurred stop everything until safe to restart
@@ -942,7 +1012,8 @@ int proficio_main(int argc, char** argv,
       {
         //std::cout << "State: " << state << std::endl;
         // TODO
-        wam.moveTo(system_center);
+        wam.idle();
+        //wam.moveTo(system_center);
         break;
       }
       case REST: //NOT SET HERE
@@ -955,15 +1026,17 @@ int proficio_main(int argc, char** argv,
       default:
       {
        //std::cout << "State: " << state << std::endl;
+       break;
       }
     } // ** END POSITION JUDGE ** 
- 
+    //cout << "end switch" << endl;
     if (product_manager.getSafetyModule()->getMode() == barrett::SafetyModule::IDLE)
     {
       wam.moveHome();
       return 0;
     }
     barrett::btsleep(0.02);
+ //cout << "while loop back" << endl;
   #ifndef NO_CONTROL_PENDANT
   #endif
   }
